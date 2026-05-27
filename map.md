@@ -2,10 +2,56 @@
 
 ## Sistema
 
-**Nome**: MoirAI Sports Engine
+**Nome**: MoirAI Sports Engine / MoirAI Sports OS
 **Stack**: Next.js 14 + React 18 + TypeScript 5.4 + decimal.js
 **Autor**: MADev
 **Última Atualização**: 2026-05-27
+**Blueprint**: v0.3.5-Release · Reactive-Microservices-EDA
+
+---
+
+## 🏗️ Arquitetura 5 Camadas (v0.3.5)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  L5 — OLAP Analytics     ClickHouse                         │
+│  Massive CV tracking, passing networks, tactical matrices   │
+├─────────────────────────────────────────────────────────────┤
+│  L4 — Time-Series        TimescaleDB                        │
+│  Hypertables, colunar compression (7d), retenção (60d)      │
+├─────────────────────────────────────────────────────────────┤
+│  L3 — Hot Cache / PubSub   Redis Cluster                    │
+│  live:match:{id}, live:timeline:{id}, Pub/Sub WS channels   │
+├─────────────────────────────────────────────────────────────┤
+│  L2 — Streaming           Kafka / Redpanda                  │
+│  sports.events.raw → processed → snapshots → tracking       │
+├─────────────────────────────────────────────────────────────┤
+│  L1 — Operational DB      PostgreSQL + pgvector             │
+│  ACID, RLS, entity_tenants, embeddings, Knowledge Graph     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## 🔗 API Gateway (v0.3.5)
+
+| Rota | Método | Fonte | Security |
+|------|--------|-------|----------|
+| `/api/v1/matches/live` | GET | Redis live:match:* | JWT + X-Tenant-ID |
+| `/api/v1/ai/scouting-report` | POST | pgvector + Graph edges | JWT + X-Tenant-ID |
+| `/api/live/match/{id}` | GET | Seed / Redis snapshots | X-Tenant-ID |
+
+## 📡 Event Lifecycle Contract
+
+```
+sport_events_v3:
+  event_sequence (BIGINT IDENTITY) → ordenamento monotônico global
+  (id, version) PK → mutações pós-fato toleradas (VAR, scout)
+  is_current + parent_event_id + revision_reason → audit trail
+
+Core domain events:
+  match.started | match.updated | match.finished | event.created
+  snapshot.created | odds.updated | tracking.received
+  player.injured | ranking.updated
+```
 
 ---
 
@@ -766,6 +812,17 @@ O volume de eventos em tempo real saturará o modelo puramente relacional:
 ```
 
 ## 📝 CHANGELOG
+
+### 2026-05-27 (v8) — v0.3.5-Release
+
+- **ML Feature Store**: `ml_features` table com lineage control (entity_type, feature_group, model_version, calculated_at) + RLS + janela temporal anti-leakage
+- **API Gateway v1**: 3 novas rotas — `GET /api/v1/matches/live` (filtro tenant/sport), `POST /api/v1/ai/scouting-report` (similaridade vetorial + validação em grafo), `GET /api/live/match/{id}` (snapshot + gateway)
+- **Arquitetura 5 Camadas documentada**: L1 PostgreSQL+pgvector → L2 Kafka/Redpanda → L3 Redis Cluster → L4 TimescaleDB → L5 ClickHouse
+- **Infra docs**: Kafka AVRO schema, Redis key naming conventions, TimescaleDB hypertable migration scripts, ClickHouse Kafka Engine DDL — tudo comentado no schema.sql
+- **Event Lifecycle**: Domain events catalog (9 eventos), mutation flags (is_current, parent_event_id, revision_reason)
+- **Tipos**: `MlFeature` + `FeatureGroup` type
+- **Seed**: 2 ml_features (tactical, physical groups)
+- **Schema**: 56+ tabelas, 9 ENUMs, 4 MVs, 11 RLS policies
 
 ### 2026-05-27 (v7)
 

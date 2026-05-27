@@ -1519,6 +1519,199 @@ CREATE POLICY tenant_isolation_events_v3 ON sport_events_v3
     FOR ALL USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
 
 -- =============================================================================
+-- ML FEATURE STORE (v0.3.5) — Armazenamento de Features para Modelos de ML
+-- Linhagem controlada: entity_type, feature_group, calculated_at, model_version
+-- Previne vazamento de dados (data leakage) em treinamentos temporais
+-- =============================================================================
+
+CREATE TABLE ml_features (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id         UUID REFERENCES tenants(id) ON DELETE RESTRICT,
+    -- Alvo da feature (jogador, time, partida)
+    entity_type       VARCHAR(30) NOT NULL,              -- 'player', 'team', 'match'
+    entity_id         UUID NOT NULL,
+    -- Agrupamento lógico de features
+    feature_group     VARCHAR(50) NOT NULL,              -- 'tactical', 'physical', 'psychological', 'performance', 'scouting'
+    model_name        VARCHAR(100) NOT NULL,              -- Modelo que gerou a feature
+    model_version     VARCHAR(30) NOT NULL,               -- Pinagem rigorosa de versão
+    -- Features em formato JSONB (chave-valor numérico)
+    features          JSONB NOT NULL DEFAULT '{}'::jsonb, -- Ex: {"expected_goals": 0.45, "pressure_index": 7.2}
+    -- Janela temporal da feature (evita data leakage)
+    window_start      TIMESTAMPTZ NOT NULL,
+    window_end        TIMESTAMPTZ NOT NULL,
+    -- Metadados de linhagem
+    feature_engine    VARCHAR(100),                       -- 'python-script', 'sql-aggregation', 'external-api'
+    source_table      VARCHAR(100),                       -- Tabela de origem dos dados brutos
+    calculated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(), -- Precisão anti-leakage
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (entity_type, entity_id, feature_group, model_name, model_version, window_start)
+);
+
+CREATE INDEX idx_ml_features_entity ON ml_features(entity_type, entity_id);
+CREATE INDEX idx_ml_features_group ON ml_features(feature_group);
+CREATE INDEX idx_ml_features_model ON ml_features(model_name, model_version);
+CREATE INDEX idx_ml_features_window ON ml_features(window_start, window_end);
+CREATE INDEX idx_ml_features_calculated ON ml_features(calculated_at);
+
+ALTER TABLE ml_features ENABLE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation_ml_features ON ml_features
+    FOR ALL USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
+
+-- =============================================================================
+-- L2 — STREAMING: KAFKA / REDPANDA INTEGRATION (v0.3.5)
+-- Schema do evento bruto trafegado no tópico "sports.events.raw"
+-- Producer: sensores IoT, APIs de terceiros, wearables, CV pipelines
+-- Consumer: MoirAI Event Processor (Golang/Rust) → PostgreSQL + Redis
+-- =============================================================================
+--
+-- Estrutura do AVRO Schema registrada no Schema Registry:
+-- {
+--   "namespace": "com.moirai.sports",
+--   "type": "record",
+--   "name": "RawSportEvent",
+--   "fields": [
+--     { "name": "event_id",         "type": "string", "doc": "UUID v7 do evento" },
+--     { "name": "tenant_id",        "type": "string" },
+--     { "name": "source",           "type": "string", "doc": "'camera', 'wearable', 'api', 'scout'" },
+--     { "name": "match_id",         "type": "string" },
+--     { "name": "sport",            "type": "string" },
+--     { "name": "event_type",       "type": "string" },
+--     { "name": "occurred_at",      "type": "long",   "doc": "Timestamp epoch millis" },
+--     { "name": "payload",          "type": "string", "doc": "JSONB serializado" },
+--     { "name": "sequence_key",     "type": "long",   "doc": "Chave de ordenação determinística" },
+--     { "name": "producer_id",      "type": "string", "doc": "Identificador do produtor" }
+--   ],
+--   "config": { "order": "sequence_key ASC" }
+-- }
+--
+-- Tópicos Kafka/Redpanda:
+--   sports.events.raw         → Ingestão bruta (retenção 7d)
+--   sports.events.processed   → Eventos validados e enriquecidos
+--   sports.snapshots          → State snapshots (compactado)
+--   sports.odds.updates       → Atualizações de odds em tempo real
+--   sports.telemetry.tracking → Dados de tracking 25+ FPS
+--
+-- Consumer Groups:
+--   moirai-event-processor    → Lê raw, valida, escreve em sport_events_v3
+--   moirai-snapshot-builder   → Constrói match_state_snapshots
+--   moirai-redis-cache        → Popula Redis (live:match:*)
+--   moirai-clickhouse-loader  → Descarrega batch para ClickHouse
+
+-- =============================================================================
+-- L3 — HOT CACHE: REDIS CLUSTER (v0.3.5)
+-- Cache distribuído para estado ao vivo de partidas e Pub/Sub WebSocket
+-- Estrutura de chaves e tipos de dados usados pelo MoirAI Cache Layer
+-- =============================================================================
+--
+-- # Convenção de Chaves Redis
+--
+-- ## Match Live State (Hash)
+--   live:match:{match_id}
+--   Fields: home_score, away_score, minute, status, possession_home,
+--           possession_away, momentum, pressure_index, dominant_zone
+--   TTL: 300s (renovado a cada snapshot)
+--
+-- ## Timeline Ordenada (Sorted Set)
+--   live:timeline:{match_id}
+--   Members: event_id (score: sequence_key)
+--   Score: event_sequence (ordenamento monotônico determinístico)
+--
+-- ## Tenants Pub/Sub Canais
+--   tenant:{tenant_id}:match:{match_id}:events
+--   Publica: JSON do evento serializado (mesmo schema do Kafka processed)
+--
+-- ## Leaderboards (Sorted Sets)
+--   live:leaderboard:top_scorers:{competition_id}
+--   live:leaderboard:assists:{season_id}
+--   live:leaderboard:ratings:{tournament_id}
+--
+-- ## Snapshots Recentes (List — mantém últimos 120 snapshots por partida)
+--   live:snapshots:{match_id}
+--   LTRIM após push para evitar crescimento infinito
+--
+-- # Fluxo de Atualização:
+--   Kafka Consumer (moirai-redis-cache) →
+--     HSET live:match:{match_id} ... &
+--     ZADD live:timeline:{match_id} ... &
+--     PUBLISH tenant:{tid}:match:{mid}:events "{...}"
+
+-- =============================================================================
+-- L4 — TIME-SERIES: TIMESCALEDB (v0.3.5)
+-- Hypertables para dados volumétricos de tracking e snapshots
+-- Otimizações: chunk 1 dia, compressão colunar 7 dias, retenção 60 dias
+-- =============================================================================
+--
+-- -- Migração das tabelas existentes para TimescaleDB:
+-- SELECT create_hypertable('tracking_frames',       'captured_at', chunk_time_interval => INTERVAL '1 day');
+-- SELECT create_hypertable('match_state_snapshots',  'captured_at', chunk_time_interval => INTERVAL '1 day');
+-- SELECT create_hypertable('player_coordinates',     'captured_at', chunk_time_interval => INTERVAL '1 day');
+-- SELECT create_hypertable('ball_coordinates',       'created_at',  chunk_time_interval => INTERVAL '1 day');
+--
+-- -- Compressão colunar (7 dias após inserção):
+-- ALTER TABLE player_coordinates SET (
+--   timescaledb.compress,
+--   timescaledb.compress_segmentby = 'player_id, team_id',
+--   timescaledb.compress_orderby = 'captured_at DESC'
+-- );
+-- SELECT add_compression_policy('player_coordinates', INTERVAL '7 days');
+--
+-- -- Agregador contínuo (performance média por hora):
+-- CREATE MATERIALIZED VIEW mv_player_performance_hourly
+-- WITH (timescaledb.continuous) AS
+-- SELECT time_bucket(INTERVAL '1 hour', captured_at) AS bucket_hour,
+--        player_id, team_id,
+--        AVG(current_speed) AS avg_speed_kmh,
+--        MAX(current_speed) AS top_speed_kmh
+-- FROM player_coordinates
+-- GROUP BY bucket_hour, player_id, team_id;
+-- SELECT add_continuous_aggregate_policy('mv_player_performance_hourly',
+--   start_offset => INTERVAL '3 hours',
+--   end_offset => INTERVAL '15 minutes',
+--   schedule_interval => INTERVAL '30 minutes');
+--
+-- -- Política de retenção (60 dias):
+-- SELECT add_retention_policy('player_coordinates', INTERVAL '60 days');
+-- SELECT add_retention_policy('tracking_frames',    INTERVAL '60 days');
+
+-- =============================================================================
+-- L5 — OLAP: CLICKHOUSE (v0.3.5)
+-- Analytics massivo para dados de visão computacional e matrizes táticas
+-- Tabelas devem ser criadas no ClickHouse, alimentadas via Kafka Engine
+-- =============================================================================
+--
+-- -- Tabela no ClickHouse para análise de tracking:
+-- CREATE TABLE moirai.tracking_analytics (
+--     match_id        UUID,
+--     tenant_id       String,
+--     player_id       UUID,
+--     team_id         UUID,
+--     frame_index     UInt64,
+--     pos_x           Float64,
+--     pos_y           Float64,
+--     speed_mps       Float32,
+--     acceleration    Float32,
+--     direction_deg   UInt16,
+--     captured_at     DateTime64(3)
+-- ) ENGINE = MergeTree()
+--   PARTITION BY toYYYYMM(captured_at)
+--   ORDER BY (match_id, player_id, frame_index);
+--
+-- -- Kafka Engine para consumo do tópico sports.telemetry.tracking:
+-- CREATE TABLE moirai.tracking_kafka_queue (
+--     match_id UUID, tenant_id String, player_id UUID, team_id UUID,
+--     frame_index UInt64, pos_x Float64, pos_y Float64, speed_mps Float32,
+--     acceleration Float32, direction_deg UInt16, captured_at DateTime64(3)
+-- ) ENGINE = Kafka SETTINGS
+--   kafka_broker_list = 'redpanda-cluster:9092',
+--   kafka_topic_list = 'sports.telemetry.tracking',
+--   kafka_group_name = 'moirai-clickhouse-loader',
+--   kafka_format = 'JSONEachRow';
+--
+-- -- Materialized View que move do Kafka → MergeTree:
+-- CREATE MATERIALIZED VIEW moirai.tracking_consumer TO moirai.tracking_analytics AS
+-- SELECT * FROM moirai.tracking_kafka_queue;
+
+-- =============================================================================
 -- SEED DATA (Esportes base)
 -- =============================================================================
 

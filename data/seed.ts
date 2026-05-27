@@ -5,7 +5,7 @@ import type {
   MatchLineup, LineupPlayer, Ranking, MediaAsset, Odds,
   Organization, Tenant, TenantUser, TenantPermission,
   MatchStateSnapshot, SportEvent, EntityEmbedding,
-  EntityTenant, GraphNode, GraphEdge,
+  EntityTenant, GraphNode, GraphEdge, MlFeature,
 } from '../types/database';
 
 export const competitions: Competition[] = [
@@ -400,6 +400,28 @@ export const graphEdgesData: GraphEdge[] = [
   { id: 'ge4', tenantId: 'ten1', sourceNodeId: 'gn6', targetNodeId: 'gn4', predicate: 'transferred_to', weight: 1.0, properties: { season: '2021', transfer_fee_eur: 32000000 }, createdAt: '2021-07-01T00:00:00Z', updatedAt: '2021-07-01T00:00:00Z' },
   { id: 'ge5', tenantId: 'ten1', sourceNodeId: 'gn1', targetNodeId: 'gn5', predicate: 'injured_in', weight: 0.3, properties: { year: 2025, injury_type: 'minor' }, createdAt: '2025-04-13T00:00:00Z', updatedAt: '2025-04-13T00:00:00Z' },
   { id: 'ge6', tenantId: 'ten1', sourceNodeId: 'gn7', targetNodeId: 'gn2', predicate: 'played_with', weight: 0.85, properties: { season: '2022', national_team: 'Uruguai' }, createdAt: '2025-01-01T00:00:00Z', updatedAt: '2025-01-01T00:00:00Z' },
+];
+
+// =============================================================================
+// ML FEATURE STORE (v0.3.5)
+// =============================================================================
+export const mlFeaturesData: MlFeature[] = [
+  {
+    id: 'mf1', entityType: 'player', entityId: 'p1', featureGroup: 'tactical',
+    modelName: 'moirai-scout-v2', modelVersion: '2.1.0',
+    features: { expected_goals: 0.45, pressure_index: 7.2, offensive_contribution: 0.82 },
+    windowStart: '2025-04-01T00:00:00Z', windowEnd: '2025-04-30T00:00:00Z',
+    featureEngine: 'sql-aggregation', sourceTable: 'football_player_stats',
+    calculatedAt: '2025-05-01T00:00:00Z', createdAt: '2025-05-01T00:00:00Z',
+  },
+  {
+    id: 'mf2', entityType: 'player', entityId: 'p2', featureGroup: 'physical',
+    modelName: 'moirai-scout-v2', modelVersion: '2.1.0',
+    features: { avg_speed_kmh: 8.5, distance_covered_km: 11.2, stamina_index: 0.76 },
+    windowStart: '2025-04-01T00:00:00Z', windowEnd: '2025-04-30T00:00:00Z',
+    featureEngine: 'sql-aggregation', sourceTable: 'player_coordinates',
+    calculatedAt: '2025-05-01T00:00:00Z', createdAt: '2025-05-01T00:00:00Z',
+  },
 ];
 
 export const allTeams = [...teams, ...volleyballTeams, ...basketballTeams, ...baseballTeams];

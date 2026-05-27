@@ -25,6 +25,29 @@ export type EntityType = 'player' | 'team' | 'match' | 'competition' | 'venue' |
 export type EdgePredicate = 'played_with' | 'coached_by' | 'rival_of' | 'injured_in' | 'transferred_to' | 'agent_of' | 'tactical_cluster';
 
 // =============================================================================
+// ML FEATURE STORE (v0.3.5)
+// =============================================================================
+
+export type FeatureGroup = 'tactical' | 'physical' | 'psychological' | 'performance' | 'scouting';
+
+export interface MlFeature {
+  id: string;
+  tenantId?: string;
+  entityType: string;
+  entityId: string;
+  featureGroup: FeatureGroup;
+  modelName: string;
+  modelVersion: string;
+  features: Record<string, number>;
+  windowStart: string;
+  windowEnd: string;
+  featureEngine?: string;
+  sourceTable?: string;
+  calculatedAt: string;
+  createdAt: string;
+}
+
+// =============================================================================
 // DOMÍNIO (Compartilhado)
 // =============================================================================
 
