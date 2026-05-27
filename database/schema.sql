@@ -24,6 +24,105 @@ CREATE TYPE transfer_type AS ENUM ('permanent', 'loan', 'free_transfer', 'swap',
 CREATE TYPE injury_severity AS ENUM ('minor', 'moderate', 'severe', 'career_threatening');
 CREATE TYPE ranking_type AS ENUM ('player_overall', 'team_form', 'top_scorer', 'top_assists', 'club_world', 'player_potential', 'club_ranking');
 CREATE TYPE staff_role AS ENUM ('head_coach', 'assistant_coach', 'fitness_coach', 'scout', 'analyst', 'physiotherapist', 'doctor', 'director_of_football', 'sporting_director');
+CREATE TYPE entity_type_enum AS ENUM ('player', 'team', 'match', 'competition', 'venue', 'scout_report', 'article');
+CREATE TYPE edge_predicate_enum AS ENUM ('played_with', 'coached_by', 'rival_of', 'injured_in', 'transferred_to', 'agent_of', 'tactical_cluster');
+
+-- =============================================================================
+-- MULTI-TENANT SAAS (MOI-014)
+-- =============================================================================
+
+CREATE TABLE organizations (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name            VARCHAR(200) NOT NULL,
+  slug            VARCHAR(100) UNIQUE NOT NULL,
+  logo_url        TEXT,
+  country         VARCHAR(100),
+  plan            VARCHAR(30) CHECK (plan IN ('free', 'starter', 'professional', 'enterprise')),
+  is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+  settings        JSONB,
+  created_by      UUID,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at      TIMESTAMPTZ
+);
+
+CREATE TABLE tenants (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  name            VARCHAR(200) NOT NULL,
+  slug            VARCHAR(100) NOT NULL,
+  sport_id        sport_type,
+  settings        JSONB,
+  is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+  created_by      UUID,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at      TIMESTAMPTZ,
+  UNIQUE (organization_id, slug)
+);
+
+CREATE TABLE tenant_users (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  user_id         UUID NOT NULL,                      -- external auth provider ID
+  email           VARCHAR(255),
+  full_name       VARCHAR(200),
+  role            VARCHAR(50) CHECK (role IN ('admin', 'manager', 'scout', 'analyst', 'viewer')),
+  is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+  last_login_at   TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (tenant_id, user_id)
+);
+
+CREATE TABLE tenant_permissions (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  role            VARCHAR(50) NOT NULL,
+  resource        VARCHAR(100) NOT NULL,              -- Ex: 'matches', 'players', 'standings', 'analytics'
+  permission      VARCHAR(20) NOT NULL CHECK (permission IN ('read', 'write', 'admin')),
+  UNIQUE (tenant_id, role, resource)
+);
+
+CREATE INDEX idx_tenants_org ON tenants(organization_id);
+CREATE INDEX idx_tenant_users_tenant ON tenant_users(tenant_id);
+CREATE INDEX idx_tenant_permissions_role ON tenant_permissions(tenant_id, role);
+
+-- =============================================================================
+-- ENTITY-TENANT MAPPING (MOI-014) — Mapeamento Polimórfico de Isolamento
+-- Permite compartilhamento seletivo entre ligas/clubes sem RLS pesado
+-- =============================================================================
+
+CREATE TABLE entity_tenants (
+    entity_type     VARCHAR(50) NOT NULL,       -- 'player', 'team', 'match', 'scout_report'
+    entity_id       UUID NOT NULL,
+    tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (entity_type, entity_id, tenant_id)
+);
+
+CREATE INDEX idx_entity_tenants_lookup ON entity_tenants (entity_type, entity_id);
+CREATE INDEX idx_entity_tenants_tenant ON entity_tenants (tenant_id);
+
+-- =============================================================================
+-- INJEÇÃO GLOBAL DE TENANT_ID NAS TABELAS CORE
+-- Aplica o padrão de isolamento lógico em todas as tabelas transacionais
+-- =============================================================================
+
+ALTER TABLE matches ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE teams ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE players ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE sport_events ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE match_state_snapshots ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE entity_embeddings ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE tracking_frames ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+
+CREATE INDEX idx_matches_tenant ON matches(tenant_id);
+CREATE INDEX idx_teams_tenant ON teams(tenant_id);
+CREATE INDEX idx_players_tenant ON players(tenant_id);
+CREATE INDEX idx_sport_events_tenant ON sport_events(tenant_id);
+CREATE INDEX idx_match_snapshots_tenant ON match_state_snapshots(tenant_id);
+CREATE INDEX idx_entity_embeddings_tenant ON entity_embeddings(tenant_id);
+CREATE INDEX idx_tracking_frames_tenant ON tracking_frames(tenant_id);
 
 -- =============================================================================
 -- TABELAS DE DOMÍNIO (COMPARTILHADAS)
@@ -322,6 +421,111 @@ CREATE INDEX idx_matches_competition ON matches(competition_id, season_id);
 CREATE INDEX idx_matches_team ON matches(home_team_id, away_team_id);
 CREATE INDEX idx_matches_scheduled ON matches(scheduled_at);
 CREATE INDEX idx_matches_live ON matches(status, scheduled_at) WHERE status = 'live';
+
+-- =============================================================================
+-- LIVE STATE ENGINE (MOI-012) — Snapshots de Estado em Tempo Real
+-- =============================================================================
+
+CREATE TABLE match_state_snapshots (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  match_id          UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+  team_id           UUID NOT NULL REFERENCES teams(id),
+  captured_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  -- Placar e tempo
+  minute            SMALLINT NOT NULL CHECK (minute >= 0),
+  extra_minute      SMALLINT DEFAULT 0,
+  period            match_period NOT NULL DEFAULT 'first_half',
+  score             SMALLINT NOT NULL,
+  opponent_score    SMALLINT NOT NULL,
+  -- Métricas vivas
+  possession        DECIMAL(5,2) CHECK (possession BETWEEN 0 AND 100),
+  momentum          SMALLINT CHECK (momentum BETWEEN 0 AND 100),         -- Momento do jogo
+  pressure_index    DECIMAL(5,2) CHECK (pressure_index BETWEEN 0 AND 10),-- Pressão ofensiva
+  estimated_fatigue DECIMAL(5,2) CHECK (estimated_fatigue BETWEEN 0 AND 100),
+  live_xg           DECIMAL(5,2) DEFAULT 0,
+  live_xga          DECIMAL(5,2) DEFAULT 0,                              -- xG sofrido (expected goals against)
+  -- Eventos recentes (últimos 5 min)
+  shots_last_5min   SMALLINT DEFAULT 0,
+  chances_created   SMALLINT DEFAULT 0,
+  dangerous_attacks SMALLINT DEFAULT 0,
+  -- Estado contextual
+  dominant_zone     VARCHAR(20),                                          -- "left_flank", "center", "right_flank", "defensive_third", "middle_third", "final_third"
+  is_pressing       BOOLEAN DEFAULT FALSE,
+  is_countering     BOOLEAN DEFAULT FALSE,
+  is_in_control     BOOLEAN DEFAULT FALSE,                                -- Time controlando o jogo
+  -- Payload flexível
+  extra_metrics     JSONB,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+) PARTITION BY RANGE (captured_at);
+
+CREATE INDEX idx_snapshots_match ON match_state_snapshots(match_id);
+CREATE INDEX idx_snapshots_time ON match_state_snapshots(match_id, captured_at DESC);
+CREATE INDEX idx_snapshots_minute ON match_state_snapshots(match_id, minute);
+
+-- Tabelas de partição para snapshots (mensal)
+-- CREATE TABLE match_state_snapshots_2025_04 PARTITION OF match_state_snapshots
+--   FOR VALUES FROM ('2025-04-01') TO ('2025-05-01');
+
+-- =============================================================================
+-- TRACKING & SPATIAL DATA (MOI-015) — Visão Computacional / Wearables
+-- =============================================================================
+
+CREATE TABLE tracking_frames (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  match_id          UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+  frame_index       BIGINT NOT NULL,                  -- Nº do frame na partida
+  captured_at       TIMESTAMPTZ NOT NULL,
+  period            match_period NOT NULL,
+  minute            SMALLINT NOT NULL,
+  -- Metadados do frame
+  source            VARCHAR(50) DEFAULT 'camera',     -- 'camera', 'wearable', 'hybrid'
+  fps               SMALLINT DEFAULT 25,
+  processing_time_ms INT,                              -- Latência de processamento
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (match_id, frame_index)
+) PARTITION BY RANGE (captured_at);
+
+CREATE INDEX idx_tracking_frames_match ON tracking_frames(match_id, frame_index);
+
+CREATE TABLE player_coordinates (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  frame_id          UUID NOT NULL REFERENCES tracking_frames(id) ON DELETE CASCADE,
+  match_id          UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+  player_id         UUID NOT NULL REFERENCES players(id),
+  team_id           UUID NOT NULL REFERENCES teams(id),
+  -- Posição normalizada (0.0 a 1.0 ou -1 a 1)
+  pos_x             DECIMAL(6,4) NOT NULL,
+  pos_y             DECIMAL(6,4) NOT NULL,
+  -- Velocidade e direção
+  speed_mps         DECIMAL(5,2),                     -- Metros por segundo
+  acceleration_mps2 DECIMAL(5,2),                     -- m/s²
+  direction_deg     SMALLINT,                         -- Graus (0-360)
+  -- Metadados
+  is_active_play    BOOLEAN DEFAULT TRUE,              -- Em campo ou não?
+  distance_covered  DECIMAL(6,2),                     -- Distância total no frame
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_player_coords_frame ON player_coordinates(frame_id);
+CREATE INDEX idx_player_coords_match ON player_coordinates(match_id, player_id);
+
+CREATE TABLE ball_coordinates (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  frame_id          UUID NOT NULL REFERENCES tracking_frames(id) ON DELETE CASCADE,
+  match_id          UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+  pos_x             DECIMAL(6,4) NOT NULL,
+  pos_y             DECIMAL(6,4) NOT NULL,
+  pos_z             DECIMAL(6,4),                     -- Altura (para chutes, cruzamentos)
+  speed_mps         DECIMAL(5,2),
+  direction_deg     SMALLINT,
+  is_in_play        BOOLEAN DEFAULT TRUE,
+  -- Evento associado (se houver)
+  event_id          UUID,                              -- FK polimórfica para sport_events
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_ball_coords_frame ON ball_coordinates(frame_id);
+CREATE INDEX idx_ball_coords_match ON ball_coordinates(match_id);
 
 -- =============================================================================
 -- SISTEMA TÁTICO (ESCALAÇÕES / LINEUPS)
@@ -868,53 +1072,50 @@ CREATE TABLE baseball_events (
 CREATE INDEX idx_baseball_events_match ON baseball_events(match_id);
 CREATE INDEX idx_baseball_events_player ON baseball_events(batter_id, pitcher_id);
 
--- Estatísticas individuais por partida (Baseball — Batedores)
-CREATE TABLE baseball_batter_stats (
-  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  match_id              UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
-  player_id             UUID NOT NULL REFERENCES players(id),
-  team_id               UUID NOT NULL REFERENCES teams(id),
-  at_bats               SMALLINT DEFAULT 0,
-  runs                  SMALLINT DEFAULT 0,
-  hits                  SMALLINT DEFAULT 0,
-  doubles               SMALLINT DEFAULT 0,
-  triples               SMALLINT DEFAULT 0,
-  home_runs             SMALLINT DEFAULT 0,
-  rbi                   SMALLINT DEFAULT 0,
-  walks                 SMALLINT DEFAULT 0,
-  strikeouts            SMALLINT DEFAULT 0,
-  stolen_bases          SMALLINT DEFAULT 0,
-  caught_stealing       SMALLINT DEFAULT 0,
-  left_on_base          SMALLINT DEFAULT 0,
-  batting_avg           DECIMAL(5,3) CHECK (batting_avg BETWEEN 0 AND 1),
-  on_base_pct           DECIMAL(5,3) CHECK (on_base_pct BETWEEN 0 AND 1),
-  slugging_pct          DECIMAL(5,3) CHECK (slugging_pct BETWEEN 0 AND 1),
-  UNIQUE (match_id, player_id)
-);
+-- =============================================================================
+-- UNIVERSAL EVENT ENGINE (MOI-011) — Evento Polimórfico Multi-Esporte
+-- Arquitetura Híbrida: Escrita normalizada aqui, leitura via MVs por esporte
+-- =============================================================================
 
--- Estatísticas individuais por partida (Baseball — Arremessadores)
-CREATE TABLE baseball_pitcher_stats (
-  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  match_id              UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
-  player_id             UUID NOT NULL REFERENCES players(id),
-  team_id               UUID NOT NULL REFERENCES teams(id),
-  innings_pitched       DECIMAL(4,1) DEFAULT 0,
-  hits_allowed          SMALLINT DEFAULT 0,
-  runs_allowed          SMALLINT DEFAULT 0,
-  earned_runs           SMALLINT DEFAULT 0,
-  walks                 SMALLINT DEFAULT 0,
-  strikeouts            SMALLINT DEFAULT 0,
-  home_runs_allowed     SMALLINT DEFAULT 0,
-  pitches_count         SMALLINT DEFAULT 0,
-  strikes_count         SMALLINT DEFAULT 0,
-  batters_faced         SMALLINT DEFAULT 0,
-  win                   BOOLEAN DEFAULT FALSE,
-  loss                  BOOLEAN DEFAULT FALSE,
-  save                  BOOLEAN DEFAULT FALSE,
-  era                   DECIMAL(4,2) CHECK (era >= 0),   -- Earned Run Average
-  whip                  DECIMAL(4,2) CHECK (whip >= 0),  -- Walks + Hits per Inning Pitched
-  UNIQUE (match_id, player_id)
-);
+CREATE TABLE sport_events (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  match_id          UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+  sport_id          sport_type NOT NULL,
+  team_id           UUID NOT NULL REFERENCES teams(id),
+  player_id         UUID REFERENCES players(id),
+  event_type        VARCHAR(50) NOT NULL,             -- 'goal', 'card', 'point', 'two_pointer', 'hit', etc.
+  -- Temporais
+  minute            SMALLINT NOT NULL CHECK (minute >= 0),
+  extra_minute      SMALLINT DEFAULT 0,
+  period            match_period NOT NULL DEFAULT 'first_half',
+  -- Score no momento do evento
+  current_home_score SMALLINT NOT NULL DEFAULT 0,
+  current_away_score SMALLINT NOT NULL DEFAULT 0,
+  -- Payload específico do esporte (JSONB)
+  payload           JSONB NOT NULL,                   -- Dados específicos: gols, cartões, arremessos, rebatidas
+  -- Participantes secundários
+  secondary_player_id UUID REFERENCES players(id),    -- Assistente, 2º assistente, rebatedor, etc.
+  -- Coordenadas
+  pos_x             DECIMAL(5,2),
+  pos_y             DECIMAL(5,2),
+  -- Metadados
+  tags              TEXT[],                            -- Tags para categorização: 'important', 'controversial', 'highlight'
+  description       TEXT,
+  source            VARCHAR(50) DEFAULT 'manual',      -- 'manual', 'api', 'computer_vision', 'scout'
+  created_by        UUID,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+) PARTITION BY RANGE (created_at);
+
+CREATE INDEX idx_sport_events_match ON sport_events(match_id);
+CREATE INDEX idx_sport_events_sport ON sport_events(sport_id);
+CREATE INDEX idx_sport_events_player ON sport_events(player_id);
+CREATE INDEX idx_sport_events_type ON sport_events(event_type);
+CREATE INDEX idx_sport_events_time ON sport_events(match_id, minute);
+
+-- Views materializadas por esporte (leitura desnormalizada)
+-- CREATE MATERIALIZED VIEW mv_football_events AS
+-- SELECT se.*, p.payload->>'goal_type' AS goal_type, ...
+-- FROM sport_events se WHERE se.sport_id = 'football';
 
 -- =============================================================================
 -- CLASSIFICAÇÃO
@@ -1134,6 +1335,47 @@ GROUP BY team_id, competition_id, season_id;
 CREATE UNIQUE INDEX idx_mv_team_recent_form ON mv_team_recent_form(team_id, competition_id, season_id);
 
 -- =============================================================================
+-- AI EMBEDDINGS LAYER (MOI-013) — Busca Semântica e RAG Esportivo
+-- Requer extensão pgvector: CREATE EXTENSION IF NOT EXISTS vector;
+-- =============================================================================
+
+CREATE TABLE entity_embeddings (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  entity_type       VARCHAR(30) NOT NULL,             -- 'player', 'team', 'match', 'article', 'scout_report'
+  entity_id         UUID NOT NULL,
+  -- Vetor de embedding (dimensionalidade varia por modelo, ex: 384 para all-MiniLM, 1536 para OpenAI)
+  embedding         VECTOR(384) NOT NULL,
+  -- Fonte do embedding
+  source_text       TEXT NOT NULL,                    -- Texto original que gerou o embedding
+  source_field      VARCHAR(100),                     -- 'biography', 'scout_notes', 'match_report', 'description'
+  model_name        VARCHAR(100) DEFAULT 'all-MiniLM-L6-v2',
+  model_version     VARCHAR(20),
+  -- Metadados
+  chunk_index       SMALLINT DEFAULT 0,               -- Para textos longos divididos em chunks
+  total_chunks      SMALLINT DEFAULT 1,
+  metadata          JSONB,
+  created_by        UUID,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_embeddings_entity ON entity_embeddings(entity_type, entity_id);
+CREATE INDEX idx_embeddings_model ON entity_embeddings(model_name);
+
+-- Índice de similaridade IVFFlat (para busca por aproximação)
+-- CREATE INDEX idx_embeddings_cosine ON entity_embeddings
+--   USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+
+-- Exemplo de query de similaridade:
+-- SELECT e2.entity_type, e2.entity_id, e2.source_text,
+--        1 - (e1.embedding <=> e2.embedding) AS similarity
+-- FROM entity_embeddings e1
+-- JOIN entity_embeddings e2 ON e2.id != e1.id
+-- WHERE e1.entity_id = 'p1' AND e1.entity_type = 'player'
+--   AND e2.entity_type = 'player'
+-- ORDER BY similarity DESC
+-- LIMIT 10;
+
+-- =============================================================================
 -- PARTITIONING (NOTA)
 -- Tabelas de alta volumetria devem ser particionadas em produção.
 -- Descomente e ajuste ao criar as tabelas em um banco real:
@@ -1150,12 +1392,131 @@ CREATE UNIQUE INDEX idx_mv_team_recent_form ON mv_team_recent_form(team_id, comp
 -- - basketball_events
 -- - volleyball_events
 -- - baseball_events
+-- - sport_events_v3 (por mês) ← NOVO (event sourcing)
+-- - sport_events (por mês)
+-- - match_state_snapshots (por mês)
+-- - tracking_frames (por dia)
+-- - graph_edges (por mês, opcional)
 -- - football_player_stats
 -- - basketball_player_stats
 -- - volleyball_player_stats
 -- - baseball_batter_stats
 -- - baseball_pitcher_stats
 -- =============================================================================
+
+-- =============================================================================
+-- ROW-LEVEL SECURITY (MOI-014) — Isolamento Multi-Tenant Ativo
+-- As políticas abaixo validam tenant_id via variável de sessão da aplicação
+-- O backend (FastAPI/Next.js) deve setar app.current_tenant_id a cada requisição
+-- =============================================================================
+
+ALTER TABLE matches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE players ENABLE ROW LEVEL SECURITY;
+ALTER TABLE teams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sport_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE entity_embeddings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE match_state_snapshots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tracking_frames ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY tenant_isolation_matches ON matches
+    FOR ALL USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
+
+CREATE POLICY tenant_isolation_players ON players
+    FOR ALL USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
+
+CREATE POLICY tenant_isolation_teams ON teams
+    FOR ALL USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
+
+CREATE POLICY tenant_isolation_sport_events ON sport_events
+    FOR ALL USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
+
+CREATE POLICY tenant_isolation_embeddings ON entity_embeddings
+    FOR ALL USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
+
+CREATE POLICY tenant_isolation_snapshots ON match_state_snapshots
+    FOR ALL USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
+
+CREATE POLICY tenant_isolation_tracking ON tracking_frames
+    FOR ALL USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
+
+-- =============================================================================
+-- KNOWLEDGE GRAPH LAYER — SPORTS COGNITION ENGINE (MOI-016)
+-- Modelo de Grafo Semântico para Raciocínio Contextual e Scouting Relacional
+-- =============================================================================
+
+CREATE TABLE graph_nodes (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,
+    entity_type     entity_type_enum NOT NULL,
+    entity_id       UUID NOT NULL,                    -- FK polimórfica para tabelas relacionais
+    node_label      VARCHAR(255) NOT NULL,             -- Cache de rótulo (evita JOIN pesado)
+    metadata        JSONB,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (tenant_id, entity_type, entity_id)
+);
+
+CREATE INDEX idx_graph_nodes_lookup ON graph_nodes(entity_type, entity_id);
+CREATE INDEX idx_graph_nodes_tenant ON graph_nodes(tenant_id);
+
+CREATE TABLE graph_edges (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id         UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,
+    source_node_id    UUID NOT NULL REFERENCES graph_nodes(id) ON DELETE CASCADE,
+    target_node_id    UUID NOT NULL REFERENCES graph_nodes(id) ON DELETE CASCADE,
+    predicate         edge_predicate_enum NOT NULL,
+    weight            DECIMAL(4,3) NOT NULL DEFAULT 1.000,  -- Confiabilidade da conexão
+    properties        JSONB NOT NULL DEFAULT '{}'::jsonb,   -- {season, transfer_fee_eur, etc.}
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (source_node_id, target_node_id, predicate, tenant_id)
+);
+
+CREATE INDEX idx_graph_edges_source ON graph_edges(source_node_id);
+CREATE INDEX idx_graph_edges_target ON graph_edges(target_node_id);
+CREATE INDEX idx_graph_edges_predicate ON graph_edges(predicate);
+CREATE INDEX idx_graph_edges_tenant ON graph_edges(tenant_id);
+
+ALTER TABLE graph_edges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE graph_nodes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY tenant_isolation_graph_nodes ON graph_nodes
+    FOR ALL USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
+
+CREATE POLICY tenant_isolation_graph_edges ON graph_edges
+    FOR ALL USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
+
+-- =============================================================================
+-- EVENT VERSIONING & CDC (sport_events_v3)
+-- Suporte a Event Sourcing com Sequenciamento Determinístico e Revisões
+-- =============================================================================
+
+CREATE TABLE sport_events_v3 (
+    event_sequence    BIGINT GENERATED ALWAYS AS IDENTITY,
+    id                UUID NOT NULL,
+    tenant_id         UUID REFERENCES tenants(id) ON DELETE RESTRICT,
+    sport_id          sport_type NOT NULL,
+    event_type        VARCHAR(100) NOT NULL,
+    match_id          UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+    team_id           UUID REFERENCES teams(id),
+    player_id         UUID REFERENCES players(id),
+    occurred_at       TIMESTAMPTZ NOT NULL,
+    payload           JSONB NOT NULL DEFAULT '{}'::jsonb,
+    -- Versionamento (correções de scout, revisões VAR)
+    version           SMALLINT NOT NULL DEFAULT 1,
+    is_current        BOOLEAN NOT NULL DEFAULT TRUE,
+    parent_event_id   UUID,                          -- Aponta para o evento original que sofreu mutação
+    revision_reason   TEXT,                          -- Justificativa de auditoria
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (id, version)
+);
+
+CREATE UNIQUE INDEX idx_sport_events_v3_sequence ON sport_events_v3(event_sequence);
+CREATE INDEX idx_sport_events_v3_match ON sport_events_v3(match_id);
+CREATE INDEX idx_sport_events_v3_current ON sport_events_v3(id) WHERE is_current = TRUE;
+
+ALTER TABLE sport_events_v3 ENABLE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation_events_v3 ON sport_events_v3
+    FOR ALL USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
 
 -- =============================================================================
 -- SEED DATA (Esportes base)

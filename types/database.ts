@@ -19,6 +19,10 @@ export type TransferType = 'permanent' | 'loan' | 'free_transfer' | 'swap' | 'yo
 export type InjurySeverity = 'minor' | 'moderate' | 'severe' | 'career_threatening';
 export type RankingType = 'player_overall' | 'team_form' | 'top_scorer' | 'top_assists' | 'club_world' | 'player_potential' | 'club_ranking';
 export type StaffRole = 'head_coach' | 'assistant_coach' | 'fitness_coach' | 'scout' | 'analyst' | 'physiotherapist' | 'doctor' | 'director_of_football' | 'sporting_director';
+export type TenantRole = 'admin' | 'manager' | 'scout' | 'analyst' | 'viewer';
+export type TenantPermissionLevel = 'read' | 'write' | 'admin';
+export type EntityType = 'player' | 'team' | 'match' | 'competition' | 'venue' | 'scout_report' | 'article';
+export type EdgePredicate = 'played_with' | 'coached_by' | 'rival_of' | 'injured_in' | 'transferred_to' | 'agent_of' | 'tactical_cluster';
 
 // =============================================================================
 // DOMÍNIO (Compartilhado)
@@ -314,6 +318,243 @@ export interface Odds {
   createdBy?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+// =============================================================================
+// MULTI-TENANT SAAS (MOI-014)
+// =============================================================================
+
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  logoUrl?: string;
+  country?: string;
+  plan?: 'free' | 'starter' | 'professional' | 'enterprise';
+  isActive: boolean;
+  settings?: Record<string, unknown>;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+}
+
+export interface Tenant {
+  id: string;
+  organizationId: string;
+  name: string;
+  slug: string;
+  sportId?: SportType;
+  settings?: Record<string, unknown>;
+  isActive: boolean;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+}
+
+export interface TenantUser {
+  id: string;
+  tenantId: string;
+  userId: string;
+  email?: string;
+  fullName?: string;
+  role: TenantRole;
+  isActive: boolean;
+  lastLoginAt?: string;
+  createdAt: string;
+}
+
+export interface TenantPermission {
+  id: string;
+  tenantId: string;
+  role: string;
+  resource: string;
+  permission: TenantPermissionLevel;
+}
+
+// =============================================================================
+// LIVE STATE ENGINE (MOI-012)
+// =============================================================================
+
+export interface MatchStateSnapshot {
+  id: string;
+  matchId: string;
+  teamId: string;
+  capturedAt: string;
+  minute: number;
+  extraMinute?: number;
+  period: MatchPeriod;
+  score: number;
+  opponentScore: number;
+  possession?: number;
+  momentum?: number;
+  pressureIndex?: number;
+  estimatedFatigue?: number;
+  liveXg: number;
+  liveXga: number;
+  shotsLast5min: number;
+  chancesCreated: number;
+  dangerousAttacks: number;
+  dominantZone?: string;
+  isPressing: boolean;
+  isCountering: boolean;
+  isInControl: boolean;
+  extraMetrics?: Record<string, unknown>;
+  createdAt: string;
+}
+
+// =============================================================================
+// TRACKING & SPATIAL DATA (MOI-015)
+// =============================================================================
+
+export interface TrackingFrame {
+  id: string;
+  matchId: string;
+  frameIndex: number;
+  capturedAt: string;
+  period: MatchPeriod;
+  minute: number;
+  source?: string;
+  fps?: number;
+  processingTimeMs?: number;
+  createdAt: string;
+}
+
+export interface PlayerCoordinate {
+  id: string;
+  frameId: string;
+  matchId: string;
+  playerId: string;
+  teamId: string;
+  posX: number;
+  posY: number;
+  speedMps?: number;
+  accelerationMps2?: number;
+  directionDeg?: number;
+  isActivePlay: boolean;
+  distanceCovered?: number;
+  createdAt: string;
+}
+
+export interface BallCoordinate {
+  id: string;
+  frameId: string;
+  matchId: string;
+  posX: number;
+  posY: number;
+  posZ?: number;
+  speedMps?: number;
+  directionDeg?: number;
+  isInPlay: boolean;
+  eventId?: string;
+  createdAt: string;
+}
+
+// =============================================================================
+// UNIVERSAL EVENT ENGINE (MOI-011)
+// =============================================================================
+
+export interface SportEvent {
+  id: string;
+  matchId: string;
+  sportId: SportType;
+  teamId: string;
+  playerId?: string;
+  eventType: string;
+  minute: number;
+  extraMinute?: number;
+  period: MatchPeriod;
+  currentHomeScore: number;
+  currentAwayScore: number;
+  payload: Record<string, unknown>;
+  secondaryPlayerId?: string;
+  posX?: number;
+  posY?: number;
+  tags?: string[];
+  description?: string;
+  source?: string;
+  createdBy?: string;
+  createdAt: string;
+}
+
+// =============================================================================
+// ENTITY-TENANT MAPPING (MOI-014)
+// =============================================================================
+
+export interface EntityTenant {
+  entityType: string;
+  entityId: string;
+  tenantId: string;
+  createdAt: string;
+}
+
+// =============================================================================
+// KNOWLEDGE GRAPH (MOI-016)
+// =============================================================================
+
+export interface GraphNode {
+  id: string;
+  tenantId: string;
+  entityType: EntityType;
+  entityId: string;
+  nodeLabel: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface GraphEdge {
+  id: string;
+  tenantId: string;
+  sourceNodeId: string;
+  targetNodeId: string;
+  predicate: EdgePredicate;
+  weight: number;
+  properties?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// =============================================================================
+// EVENT VERSIONING & CDC (sport_events_v3)
+// =============================================================================
+
+export interface SportEventV3 {
+  eventSequence: number;
+  id: string;
+  tenantId?: string;
+  sportId: SportType;
+  eventType: string;
+  matchId: string;
+  teamId?: string;
+  playerId?: string;
+  occurredAt: string;
+  payload: Record<string, unknown>;
+  version: number;
+  isCurrent: boolean;
+  parentEventId?: string;
+  revisionReason?: string;
+  createdAt: string;
+}
+
+// =============================================================================
+// AI EMBEDDINGS LAYER (MOI-013)
+// =============================================================================
+
+export interface EntityEmbedding {
+  id: string;
+  entityType: string;
+  entityId: string;
+  embedding: number[];
+  sourceText: string;
+  sourceField?: string;
+  modelName: string;
+  modelVersion?: string;
+  chunkIndex: number;
+  totalChunks: number;
+  metadata?: Record<string, unknown>;
+  createdBy?: string;
+  createdAt: string;
 }
 
 // =============================================================================

@@ -41,7 +41,7 @@ moirai-sports-engine/
 ├── data/
 │   └── seed.ts                 # Dados mockados: 5 comps, 20 times, 18 jogadores, 13 partidas, + stats, atributos, cartões + multi-sport (vôlei, basquete, baseball)
 ├── database/
-│   ├── schema.sql              # Schema PostgreSQL completo (4 esportes, staff, lesões, transferências, tático, rankings, MV, partitioning)
+│   ├── schema.sql              # Schema PostgreSQL completo: 50+ tabelas, multi-tenant, eventos polimórficos, tracking, embeddings, MV, partitioning
 │   └── migration_athletes.sql  # Perfil individual: atributos, cartões, teia
 ├── public/                     # Ativos estáticos (vazio)
 ├── services/
@@ -766,6 +766,28 @@ O volume de eventos em tempo real saturará o modelo puramente relacional:
 ```
 
 ## 📝 CHANGELOG
+
+### 2026-05-27 (v7)
+
+- **MOI-014 (CRITICAL) refined**: Injeção global de `tenant_id UUID` em 7 tabelas core (`matches`, `teams`, `players`, `sport_events`, `match_state_snapshots`, `entity_embeddings`, `tracking_frames`) via ALTER TABLE + índices dedicados
+- **RLS ativo**: 9 políticas de isolamento aplicadas (matches, players, teams, sport_events, entity_embeddings, match_state_snapshots, tracking_frames, graph_nodes, graph_edges, sport_events_v3) todas via `current_setting('app.current_tenant_id')`
+- **`entity_tenants`**: Tabela polimórfica de mapeamento (entity_type, entity_id, tenant_id) para compartilhamento seletivo entre ligas/clubes
+- **MOI-016 (HIGH)**: Knowledge Graph Layer — `edge_predicate_enum` (7 predicados: `played_with`, `coached_by`, `rival_of`, `injured_in`, `transferred_to`, `agent_of`, `tactical_cluster`), `graph_nodes` (vértices polimórficos), `graph_edges` (arestas com peso, propriedades JSONB, UNIQUE por source/target/predicate/tenant)
+- **Event Versioning**: `sport_events_v3` com `event_sequence BIGINT GENERATED ALWAYS AS IDENTITY`, versionamento (version SMALLINT, is_current, parent_event_id, revision_reason) para Event Sourcing, CDC e correções VAR
+- **Tipos TS**: 4 novas interfaces (`EntityTenant`, `GraphNode`, `GraphEdge`, `SportEventV3`) + tipos `EntityType` e `EdgePredicate`
+- **Seed**: entity_tenants (5), graph_nodes (7), graph_edges (6 — inclui transferred_to, played_with, rival_of, injured_in)
+- **Schema**: 55+ tabelas, 9 ENUMs (novos: entity_type_enum, edge_predicate_enum), 4 MVs, 8 partitioned, 10 RLS policies
+
+### 2026-05-27 (v6)
+
+- **MOI-011 (HIGH)**: Universal Event Engine — `sport_events` polimórfica com payload JSONB, substitui 4 tabelas de eventos para novas integrações; arquitetura híbrida Write normalizada / Read via MVs
+- **MOI-012 (CRITICAL)**: Live State Engine — `match_state_snapshots` particionada por RANGE(captured_at) com métricas vivas (posse, momentum, pressure_index, fadiga, live xG, dangerous_attacks)
+- **MOI-013 (HIGH)**: AI Embeddings Layer — `entity_embeddings` com VECTOR(384) para pgvector, suporte a busca de similaridade de cosseno e RAG esportivo
+- **MOI-014 (STRATEGIC)**: Multi-Tenant SaaS — `organizations`, `tenants`, `tenant_users`, `tenant_permissions` + documentação de RLS e tenant_id
+- **MOI-015 (HIGH)**: Tracking & Spatial Data — `tracking_frames` particionada, `player_coordinates` (pos_x/y, speed, acceleration, direction), `ball_coordinates` (pos_z para altura)
+- **Seed**: organizations (2), tenants (2), tenant_users (2), tenant_permissions (4), snapshots (3), sport_events (3), embeddings (3)
+- **Types**: 10 novas interfaces (`Organization`, `Tenant`, `TenantUser`, `TenantPermission`, `MatchStateSnapshot`, `TrackingFrame`, `PlayerCoordinate`, `BallCoordinate`, `SportEvent`, `EntityEmbedding`)
+- **Schema**: 50+ tabelas, 7 ENUMs novos, 4 MVs, RLS documentation, partitioning guide expandido
 
 ### 2026-05-27 (v5)
 

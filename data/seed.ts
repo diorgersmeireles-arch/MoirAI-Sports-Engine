@@ -3,6 +3,9 @@ import type {
   FootballMatchStats, FootballPlayerStats, PlayerAttributes,
   PlayerCard, Staff, TeamStaff, PlayerInjury, Transfer,
   MatchLineup, LineupPlayer, Ranking, MediaAsset, Odds,
+  Organization, Tenant, TenantUser, TenantPermission,
+  MatchStateSnapshot, SportEvent, EntityEmbedding,
+  EntityTenant, GraphNode, GraphEdge,
 } from '../types/database';
 
 export const competitions: Competition[] = [
@@ -312,6 +315,91 @@ export const oddsData: Odds[] = [
   { id: 'od1', matchId: 'm1', bookmaker: 'Bet365', homeWin: 1.85, draw: 3.40, awayWin: 4.50, overUnder: { '2.5': { over: 1.90, under: 1.95 } }, bothTeamsScore: { yes: 1.80, no: 2.05 }, isBoosted: false, probabilityHome: 54.1, probabilityDraw: 29.4, probabilityAway: 22.2, margin: 5.7, source: 'api', createdAt: '2025-04-10T12:00:00Z', updatedAt: '2025-04-10T12:00:00Z' },
   { id: 'od2', matchId: 'm1', bookmaker: 'Sportingbet', homeWin: 1.80, draw: 3.50, awayWin: 4.60, isBoosted: true, probabilityHome: 55.6, probabilityDraw: 28.6, probabilityAway: 21.7, margin: 5.9, source: 'api', createdAt: '2025-04-10T12:00:00Z', updatedAt: '2025-04-11T10:00:00Z' },
   { id: 'od3', matchId: 'm5', bookmaker: 'Bet365', homeWin: 2.10, draw: 3.20, awayWin: 3.60, isBoosted: false, createdAt: '2025-04-15T12:00:00Z', updatedAt: '2025-04-15T12:00:00Z' },
+];
+
+// =============================================================================
+// MULTI-TENANT (MOI-014)
+// =============================================================================
+export const organizationsData: Organization[] = [
+  { id: 'org1', name: 'MADev Sports', slug: 'madev-sports', country: 'Brasil', plan: 'enterprise', isActive: true, createdAt: '2025-01-01T00:00:00Z', updatedAt: '2025-01-01T00:00:00Z' },
+  { id: 'org2', name: 'FIFA Forward', slug: 'fifa-forward', country: 'Suíça', plan: 'enterprise', isActive: true, createdAt: '2025-03-01T00:00:00Z', updatedAt: '2025-03-01T00:00:00Z' },
+];
+
+export const tenantsData: Tenant[] = [
+  { id: 'ten1', organizationId: 'org1', name: 'Brasileirão Analytics', slug: 'brasileirao', sportId: 'football', isActive: true, createdAt: '2025-01-01T00:00:00Z', updatedAt: '2025-01-01T00:00:00Z' },
+  { id: 'ten2', organizationId: 'org1', name: 'NBA Latam', slug: 'nba-latam', sportId: 'basketball', isActive: true, createdAt: '2025-02-01T00:00:00Z', updatedAt: '2025-02-01T00:00:00Z' },
+];
+
+export const tenantUsersData: TenantUser[] = [
+  { id: 'tu1', tenantId: 'ten1', userId: 'auth0|user1', email: 'admin@madev.com', fullName: 'Admin MADev', role: 'admin', isActive: true, createdAt: '2025-01-01T00:00:00Z' },
+  { id: 'tu2', tenantId: 'ten1', userId: 'auth0|user2', email: 'scout@madev.com', fullName: 'Scout Analista', role: 'scout', isActive: true, createdAt: '2025-01-10T00:00:00Z' },
+];
+
+export const tenantPermissionsData: TenantPermission[] = [
+  { id: 'tp1', tenantId: 'ten1', role: 'admin', resource: 'matches', permission: 'admin' },
+  { id: 'tp2', tenantId: 'ten1', role: 'scout', resource: 'matches', permission: 'write' },
+  { id: 'tp3', tenantId: 'ten1', role: 'scout', resource: 'players', permission: 'write' },
+  { id: 'tp4', tenantId: 'ten1', role: 'viewer', resource: 'standings', permission: 'read' },
+];
+
+// =============================================================================
+// LIVE STATE SNAPSHOTS (MOI-012)
+// =============================================================================
+export const snapshotsData: MatchStateSnapshot[] = [
+  { id: 'ss1', matchId: 'm5', teamId: 't9', capturedAt: '2025-04-16T21:45:00Z', minute: 15, period: 'first_half', score: 1, opponentScore: 0, possession: 58, momentum: 72, pressureIndex: 6.5, estimatedFatigue: 12, liveXg: 0.8, liveXga: 0.3, shotsLast5min: 2, chancesCreated: 3, dangerousAttacks: 4, dominantZone: 'final_third', isPressing: true, isCountering: false, isInControl: true, createdAt: '2025-04-16T21:45:00Z' },
+  { id: 'ss2', matchId: 'm5', teamId: 't10', capturedAt: '2025-04-16T21:45:00Z', minute: 15, period: 'first_half', score: 0, opponentScore: 1, possession: 42, momentum: 28, pressureIndex: 3.2, estimatedFatigue: 15, liveXg: 0.3, liveXga: 0.8, shotsLast5min: 1, chancesCreated: 0, dangerousAttacks: 1, dominantZone: 'defensive_third', isPressing: false, isCountering: true, isInControl: false, createdAt: '2025-04-16T21:45:00Z' },
+  { id: 'ss3', matchId: 'm5', teamId: 't9', capturedAt: '2025-04-16T22:15:00Z', minute: 45, period: 'first_half', score: 1, opponentScore: 0, possession: 56, momentum: 68, pressureIndex: 5.8, estimatedFatigue: 35, liveXg: 1.2, liveXga: 0.5, shotsLast5min: 1, chancesCreated: 2, dangerousAttacks: 3, dominantZone: 'middle_third', isPressing: false, isCountering: false, isInControl: true, createdAt: '2025-04-16T22:15:00Z' },
+];
+
+// =============================================================================
+// SPORT EVENTS (MOI-011)
+// =============================================================================
+export const sportEventsData: SportEvent[] = [
+  { id: 'se1', matchId: 'm1', sportId: 'football', teamId: 't1', playerId: 'p1', eventType: 'goal', minute: 23, period: 'first_half', currentHomeScore: 1, currentAwayScore: 0, payload: { goalType: 'open_play', assistId: 'p2', shotDistance: 12, bodyPart: 'right_foot' }, description: 'Finalização cruzada após passe de Arrascaeta', source: 'manual', createdAt: '2025-04-13T16:23:00Z' },
+  { id: 'se2', matchId: 'm1', sportId: 'football', teamId: 't2', playerId: 'p4', eventType: 'goal', minute: 67, period: 'second_half', currentHomeScore: 1, currentAwayScore: 1, payload: { goalType: 'free_kick', shotDistance: 22, bodyPart: 'left_foot' }, description: 'Falta direta no ângulo', tags: ['highlight'], source: 'manual', createdAt: '2025-04-13T17:07:00Z' },
+  { id: 'se3', matchId: 'm1', sportId: 'football', teamId: 't1', playerId: 'p2', eventType: 'card', minute: 72, period: 'second_half', currentHomeScore: 2, currentAwayScore: 1, payload: { cardType: 'yellow', severity: 'hard', reason: 'Entrada dura' }, secondaryPlayerId: 'p5', source: 'manual', createdAt: '2025-04-13T17:12:00Z' },
+];
+
+// =============================================================================
+// AI EMBEDDINGS (MOI-013)
+// =============================================================================
+export const embeddingsData: EntityEmbedding[] = [
+  { id: 'emb1', entityType: 'player', entityId: 'p1', embedding: Array(384).fill(0), sourceText: 'Gabriel Barbosa, conhecido como Gabigol, é um atacante brasileiro...', sourceField: 'biography', modelName: 'all-MiniLM-L6-v2', chunkIndex: 0, totalChunks: 1, createdAt: '2025-04-01T00:00:00Z' },
+  { id: 'emb2', entityType: 'player', entityId: 'p2', embedding: Array(384).fill(0), sourceText: 'Arrascaeta, meia uruguaio, conhecido por sua visão de jogo e passes precisos...', sourceField: 'biography', modelName: 'all-MiniLM-L6-v2', chunkIndex: 0, totalChunks: 1, createdAt: '2025-04-01T00:00:00Z' },
+  { id: 'emb3', entityType: 'match', entityId: 'm1', embedding: Array(384).fill(0), sourceText: 'Flamengo vence Palmeiras por 2 a 1 com gol de Gabigol e atuação destacada de Arrascaeta.', sourceField: 'match_report', modelName: 'all-MiniLM-L6-v2', chunkIndex: 0, totalChunks: 1, createdAt: '2025-04-14T00:00:00Z' },
+];
+
+// =============================================================================
+// ENTITY-TENANT MAPPING (MOI-014)
+// =============================================================================
+export const entityTenantsData: EntityTenant[] = [
+  { entityType: 'player', entityId: 'p1', tenantId: 'ten1', createdAt: '2025-01-01T00:00:00Z' },
+  { entityType: 'player', entityId: 'p2', tenantId: 'ten1', createdAt: '2025-01-01T00:00:00Z' },
+  { entityType: 'team', entityId: 't1', tenantId: 'ten1', createdAt: '2025-01-01T00:00:00Z' },
+  { entityType: 'team', entityId: 't2', tenantId: 'ten1', createdAt: '2025-01-01T00:00:00Z' },
+  { entityType: 'match', entityId: 'm1', tenantId: 'ten1', createdAt: '2025-01-01T00:00:00Z' },
+];
+
+// =============================================================================
+// KNOWLEDGE GRAPH (MOI-016)
+// =============================================================================
+export const graphNodesData: GraphNode[] = [
+  { id: 'gn1', tenantId: 'ten1', entityType: 'player', entityId: 'p1', nodeLabel: 'Gabriel Barbosa (Gabigol)', createdAt: '2025-01-01T00:00:00Z' },
+  { id: 'gn2', tenantId: 'ten1', entityType: 'player', entityId: 'p2', nodeLabel: 'Arrascaeta', createdAt: '2025-01-01T00:00:00Z' },
+  { id: 'gn3', tenantId: 'ten1', entityType: 'team', entityId: 't1', nodeLabel: 'Flamengo', createdAt: '2025-01-01T00:00:00Z' },
+  { id: 'gn4', tenantId: 'ten1', entityType: 'team', entityId: 't2', nodeLabel: 'Palmeiras', createdAt: '2025-01-01T00:00:00Z' },
+  { id: 'gn5', tenantId: 'ten1', entityType: 'match', entityId: 'm1', nodeLabel: 'Flamengo 2-1 Palmeiras (2025)', createdAt: '2025-04-13T00:00:00Z' },
+  { id: 'gn6', tenantId: 'ten1', entityType: 'player', entityId: 'p4', nodeLabel: 'Raphael Veiga', createdAt: '2025-01-01T00:00:00Z' },
+  { id: 'gn7', tenantId: 'ten1', entityType: 'player', entityId: 'p9', nodeLabel: 'Luis Suárez', createdAt: '2025-01-01T00:00:00Z' },
+];
+
+export const graphEdgesData: GraphEdge[] = [
+  { id: 'ge1', tenantId: 'ten1', sourceNodeId: 'gn1', targetNodeId: 'gn3', predicate: 'transferred_to', weight: 1.0, properties: { season: '2020', transfer_fee_eur: 54000000 }, createdAt: '2020-01-28T00:00:00Z', updatedAt: '2020-01-28T00:00:00Z' },
+  { id: 'ge2', tenantId: 'ten1', sourceNodeId: 'gn1', targetNodeId: 'gn2', predicate: 'played_with', weight: 0.95, properties: { season: '2025', matches_together: 87 }, createdAt: '2025-04-01T00:00:00Z', updatedAt: '2025-04-01T00:00:00Z' },
+  { id: 'ge3', tenantId: 'ten1', sourceNodeId: 'gn3', targetNodeId: 'gn4', predicate: 'rival_of', weight: 1.0, properties: { rivalry_type: 'clássico', region: 'Brasil' }, createdAt: '2025-01-01T00:00:00Z', updatedAt: '2025-01-01T00:00:00Z' },
+  { id: 'ge4', tenantId: 'ten1', sourceNodeId: 'gn6', targetNodeId: 'gn4', predicate: 'transferred_to', weight: 1.0, properties: { season: '2021', transfer_fee_eur: 32000000 }, createdAt: '2021-07-01T00:00:00Z', updatedAt: '2021-07-01T00:00:00Z' },
+  { id: 'ge5', tenantId: 'ten1', sourceNodeId: 'gn1', targetNodeId: 'gn5', predicate: 'injured_in', weight: 0.3, properties: { year: 2025, injury_type: 'minor' }, createdAt: '2025-04-13T00:00:00Z', updatedAt: '2025-04-13T00:00:00Z' },
+  { id: 'ge6', tenantId: 'ten1', sourceNodeId: 'gn7', targetNodeId: 'gn2', predicate: 'played_with', weight: 0.85, properties: { season: '2022', national_team: 'Uruguai' }, createdAt: '2025-01-01T00:00:00Z', updatedAt: '2025-01-01T00:00:00Z' },
 ];
 
 export const allTeams = [...teams, ...volleyballTeams, ...basketballTeams, ...baseballTeams];
