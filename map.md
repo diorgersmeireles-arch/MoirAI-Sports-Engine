@@ -76,29 +76,36 @@ moirai-sports-engine/
 │   │   └── page.tsx            # Scanner ao vivo com thresholds (score mínimo, xG total)
 │   ├── competitions/
 │   │   └── page.tsx            # Tabela de classificação com seletores de competição/temporada
-│   └── api/
-│       ├── matches/route.ts    # GET: matches (filtro por id, status)
-│       ├── players/route.ts    # GET: players (filtro por id, sport, q/search)
-│       ├── competitions/route.ts # GET: listar; POST: standings
-│       ├── scanner/route.ts    # GET: partidas escaneadas
-│       └── standings/route.ts  # GET: classificação por competitionId + seasonId
+│       └── api/
+│       ├── matches/route.ts         # GET: matches (filtro por id, status)
+│       ├── players/route.ts         # GET: players (filtro por id, sport, q/search)
+│       ├── competitions/route.ts    # GET: listar; POST: standings
+│       ├── scanner/route.ts         # GET: partidas escaneadas
+│       ├── standings/route.ts       # GET: classificação por competitionId + seasonId
+│       ├── live/
+│       │   └── match/[id]/route.ts  # GET: snapshot + gateway WebSocket fallback
+│       └── v1/
+│           ├── ai/
+│           │   └── scouting-report/route.ts  # POST: similaridade vetorial + grafo
+│           └── matches/
+│               └── live/route.ts    # GET: partidas ao vivo (Redis pattern)
 ├── components/
-│   └── LiveMatchTracker.tsx    # Componente React de simulação ao vivo (742 linhas)
+│   └── LiveMatchTracker.tsx    # Componente React de simulação ao vivo (693 linhas)
 ├── data/
-│   └── seed.ts                 # Dados mockados: 5 comps, 20 times, 18 jogadores, 13 partidas, + stats, atributos, cartões + multi-sport (vôlei, basquete, baseball)
+│   └── seed.ts                 # Dados mockados: 5 comps, 23 times, 18 jogadores, 14 partidas, multi-sport stats, 7 atributos, 3 cartões + staff, injuries, transfers, lineups, rankings, odds, multi-tenant, embeddings, knowledge graph, ml features
 ├── database/
-│   ├── schema.sql              # Schema PostgreSQL completo: 50+ tabelas, multi-tenant, eventos polimórficos, tracking, embeddings, MV, partitioning
+│   ├── schema.sql              # Schema PostgreSQL: 50 tabelas, 18 ENUMs, Knowledge Graph, ML Feature Store, Event Versioning, multi-tenant, embeddings, MV
 │   └── migration_athletes.sql  # Perfil individual: atributos, cartões, teia
 ├── public/                     # Ativos estáticos (vazio)
 ├── services/
-│   ├── predictionEngine.ts     # Motor preditivo baseado em Poisson (326 linhas)
-│   └── scannerService.ts       # Scanner ao vivo e alertas (243 linhas)
+│   ├── predictionEngine.ts     # Motor preditivo baseado em Poisson (283 linhas)
+│   └── scannerService.ts       # Scanner ao vivo e alertas (211 linhas)
 ├── types/
-│   ├── sports.ts               # Contratos de dados do domínio (314 linhas)
-│   └── database.ts             # Tipagens do banco de dados (839 linhas)
+│   ├── sports.ts               # Contratos de dados do domínio (279 linhas)
+│   └── database.ts             # Tipagens do banco de dados (1202 linhas, 85 exports)
 ├── utils/
-│   ├── mathEngine.ts           # Funções estatísticas puras (296 linhas)
-│   └── financeEngine.ts        # EV e Critério de Kelly (149 linhas)
+│   ├── mathEngine.ts           # Funções estatísticas puras (254 linhas)
+│   └── financeEngine.ts        # EV e Critério de Kelly (133 linhas)
 ├── tailwind.config.ts          # Tema dark: sport-bg, sport-surface, sport-accent, etc.
 ├── postcss.config.mjs          # PostCSS: tailwindcss + autoprefixer
 ├── next.config.mjs             # Next.js 14 config
@@ -397,6 +404,9 @@ moirai-sports-engine/
 | `/api/competitions`            | POST   | `{ type, competitionId, seasonId }`                | Classificação (standings)                    |
 | `/api/scanner`                 | GET    | —                                                  | Partidas escaneadas                          |
 | `/api/standings`               | GET    | `competitionId`, `seasonId`                        | Classificação                                |
+| `/api/v1/matches/live`         | GET    | `tenant_id`, `sport_id`                            | Partidas ao vivo (Redis pattern)            |
+| `/api/v1/ai/scouting-report`   | POST   | `{ player_id, compare_to }`                        | Relatório scout via pgvector + grafo        |
+| `/api/live/match/{id}`         | GET    | Header `x-tenant-id`                               | Snapshot + histórico (WebSocket fallback)    |
 
 ---
 
@@ -524,9 +534,26 @@ erDiagram
     matches ||--o{ baseball_innings : "innings"
     matches ||--o{ baseball_match_stats : "estatisticas"
     matches ||--o{ baseball_events : "eventos"
-    matches ||--o{ baseball_batter_stats : "stats_batedores"
-    matches ||--o{ baseball_pitcher_stats : "stats_arremessadores"
     competition_teams ||--o{ standings : "classificacao"
+    players ||--o{ player_attributes : "atributos"
+    players ||--o{ player_cards : "cartoes"
+    players ||--o{ player_injuries : "lesoes"
+    players ||--o{ transfers : "transferencias"
+    staff ||--o{ team_staff : "contratos"
+    teams ||--o{ team_staff : "comissao"
+    organizations ||--o{ tenants : "organiza"
+    tenants ||--o{ tenant_users : "usuarios"
+    tenants ||--o{ tenant_permissions : "permissoes"
+    tenants ||--o{ entity_tenants : "mapeia"
+    tenants ||--o{ graph_nodes : "vertices"
+    graph_nodes ||--o{ graph_edges : "origem"
+    graph_nodes ||--o{ graph_edges : "destino"
+    matches ||--o{ match_state_snapshots : "snapshots"
+    matches ||--o{ tracking_frames : "tracking"
+    tracking_frames ||--o{ player_coordinates : "jogadores"
+    tracking_frames ||--o{ ball_coordinates : "bola"
+    matches ||--o{ sport_events : "eventos"
+    matches ||--o{ sport_events_v3 : "eventos_v3"
 ```
 
 ### Estrutura do Schema
@@ -698,6 +725,58 @@ graph LR
 | `v_player_career_stats`           | Estatísticas acumuladas da carreira                |
 | `v_player_profile`                | Perfil completo com atributos, cartões, time atual |
 
+**Nota**: As views de perfil estão documentadas como design de arquitetura mas ainda não foram implementadas em SQL.
+
+---
+
+## 📊 Tipos do Banco de Dados (`types/database.ts`)
+
+### 22 Type Aliases (ENUMs + utils)
+
+| Type Alias | Valores |
+|---|---|
+| `SportType` | `football`, `volleyball`, `basketball`, `baseball` |
+| `MatchStatus` | `scheduled`, `live`, `finished`, `postponed`, `cancelled` |
+| `MatchPeriod` | `first_half`, `second_half`, `extra_time`, `penalties` |
+| `CardType` | `yellow`, `red`, `second_yellow` |
+| `FootballEventType` | `goal`, `card`, `substitution`, `penalty`, `own_goal` |
+| `VolleyballEventType` | `point`, `block`, `serve_ace`, `attack_error`, `substitution`, `timeout` |
+| `BasketballEventType` | `two_pointer`, `three_pointer`, `free_throw`, `rebound`, `assist`, `steal`, `block`, `foul`, `turnover`, `substitution`, `timeout` |
+| `BaseballEventType` | `hit`, `home_run`, `strikeout`, `walk`, `error`, `double_play`, `stolen_base`, `caught_stealing` |
+| `FoulType` | `personal`, `technical`, `flagrant`, `offensive` |
+| `GoalType` | `open_play`, `penalty`, `free_kick`, `corner`, `header`, `own_goal` |
+| `TransferType` | `permanent`, `loan`, `free_transfer`, `swap`, `youth_promotion` |
+| `InjurySeverity` | `minor`, `moderate`, `severe`, `career_threatening` |
+| `RankingType` | `player_overall`, `team_form`, `top_scorer`, `top_assists`, `club_world`, `player_potential`, `club_ranking` |
+| `StaffRole` | `head_coach`, `assistant_coach`, `fitness_coach`, `scout`, `analyst`, `physiotherapist`, `doctor`, `director_of_football`, `sporting_director` |
+| `EntityType` | `player`, `team`, `match`, `competition`, `venue`, `scout_report`, `article` |
+| `EdgePredicate` | `played_with`, `coached_by`, `rival_of`, `injured_in`, `transferred_to`, `agent_of`, `tactical_cluster` |
+| `FeatureGroup` | `tactical`, `physical`, `psychological`, `performance`, `scouting` |
+| `CardSeverity` | `soft`, `hard`, `violent`, `technical`, `professional` |
+
+### 63 Interfaces
+
+| Categoria | Interfaces |
+|---|---|
+| **Domínio** | `Sport`, `Competition`, `Season`, `Venue`, `Team`, `CompetitionTeam`, `Player`, `TeamPlayer`, `Staff`, `TeamStaff`, `PlayerMetadata`, `PlayerInjury`, `Transfer`, `Match`, `Standing` |
+| **Multi-Tenant** | `Organization`, `Tenant`, `TenantUser`, `TenantPermission`, `EntityTenant` |
+| **Tático** | `MatchLineup`, `LineupPlayer` |
+| **Ranking/Mídia/Odds** | `Ranking`, `MediaAsset`, `Odds` |
+| **Live State** | `MatchStateSnapshot` |
+| **Tracking** | `TrackingFrame`, `PlayerCoordinate`, `BallCoordinate` |
+| **Eventos** | `SportEvent`, `SportEventV3` |
+| **AI/Embeddings** | `EntityEmbedding`, `GraphNode`, `GraphEdge` |
+| **ML Feature Store** | `MlFeature` |
+| **Futebol** | `FootballMatchStats`, `FootballEvent`, `FootballPlayerStats` |
+| **Vôlei** | `VolleyballSet`, `VolleyballMatchStats`, `VolleyballEvent`, `VolleyballPlayerStats` |
+| **Basquete** | `BasketballPeriod`, `BasketballMatchStats`, `BasketballEvent`, `BasketballPlayerStats` |
+| **Baseball** | `BaseballInning`, `BaseballMatchStats`, `BaseballEvent`, `BaseballBatterStats`, `BaseballPitcherStats` |
+| **Disciplina** | `PlayerCard`, `PlayerAttributes` |
+| **Radar** | `PlayerRadarAxis`, `PlayerRadarData`, `PlayerRadarFootball`, `PlayerRadarBasketball`, `PlayerRadarVolleyball`, `PlayerRadarBaseball` |
+| **Perfil** | `PlayerProfile` |
+
+---
+
 ### Exemplo de Retorno da Teia (JSON)
 
 ```json
@@ -752,10 +831,11 @@ graph LR
 | --------------------------------------------------------- | ---------- | ------------------------------ | ---------------------------------------------- |
 | Sem conexão com dados reais (WebSocket/API)               | média      | `data/seed.ts`                 | Dados são mockados, não reais — migrar para PostgreSQL |
 | Predição ao vivo usa dados simulados (`generateSimulatedAnalytics`) | média | `LiveMatchTracker.tsx`         | Substituir por WebSocket real                  |
-| `.opencode/` contém skills de outro projeto               | baixa      | `.opencode/`                   | Diretório de AI skills não pertence ao projeto |
+| Views de perfil de atleta não implementadas em SQL        | baixa      | `database/migration_athletes.sql` | `v_player_radar*`, `v_player_profile`, `v_player_career_stats` só existem como design |
 | Sem testes automatizados                                  | média      | —                              | Nenhum framework de teste configurado          |
 | `LiveMatchTracker` usa estilos inline                     | baixa      | `LiveMatchTracker.tsx`         | Migrar para Tailwind classes                   |
 | Scanner retorna dados mockados (Math.random)              | baixa      | `app/api/scanner/route.ts`     | Conectar a dados reais                         |
+| `types/database.ts` com 63 interfaces sem barrel export   | baixa      | `types/database.ts`            | Falta `index.ts` para importações organizadas  |
 
 ---
 
@@ -822,7 +902,7 @@ O volume de eventos em tempo real saturará o modelo puramente relacional:
 - **Event Lifecycle**: Domain events catalog (9 eventos), mutation flags (is_current, parent_event_id, revision_reason)
 - **Tipos**: `MlFeature` + `FeatureGroup` type
 - **Seed**: 2 ml_features (tactical, physical groups)
-- **Schema**: 56+ tabelas, 9 ENUMs, 4 MVs, 11 RLS policies
+- **Schema**: 50 tabelas, 18 ENUMs (17 schema.sql + 1 migration), 3 MVs + 2 views = 5 views no total, 11 RLS policies
 
 ### 2026-05-27 (v7)
 
@@ -833,7 +913,7 @@ O volume de eventos em tempo real saturará o modelo puramente relacional:
 - **Event Versioning**: `sport_events_v3` com `event_sequence BIGINT GENERATED ALWAYS AS IDENTITY`, versionamento (version SMALLINT, is_current, parent_event_id, revision_reason) para Event Sourcing, CDC e correções VAR
 - **Tipos TS**: 4 novas interfaces (`EntityTenant`, `GraphNode`, `GraphEdge`, `SportEventV3`) + tipos `EntityType` e `EdgePredicate`
 - **Seed**: entity_tenants (5), graph_nodes (7), graph_edges (6 — inclui transferred_to, played_with, rival_of, injured_in)
-- **Schema**: 55+ tabelas, 9 ENUMs (novos: entity_type_enum, edge_predicate_enum), 4 MVs, 8 partitioned, 10 RLS policies
+- **Schema**: 48 tabelas, 17 ENUMs (novos: entity_type_enum, edge_predicate_enum), 3 MVs, 8 partitioned, 10 RLS policies
 
 ### 2026-05-27 (v6)
 
