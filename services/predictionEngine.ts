@@ -11,7 +11,8 @@
  */
 
 import Decimal from 'decimal.js';
-import type { LiveAnalytics, Lineup, LineupPlayer, PlayerPosition } from '../types/sports';
+import type { LiveAnalytics, Lineup, LineupPlayer } from '../types/sports';
+import { PlayerPosition } from '../types/sports';
 import type { H2HResult, FormScoreResult } from '../utils/mathEngine';
 
 Decimal.set({ precision: 20 });
@@ -81,9 +82,7 @@ function factorial(n: number): Decimal {
  */
 function poissonProbability(lambda: number, k: number): number {
   const lambdaDec = new Decimal(lambda);
-  const kDec = new Decimal(k);
 
-  // e^(-λ)
   const expNegLambda = Decimal.exp(lambdaDec.negated());
 
   // λ^k

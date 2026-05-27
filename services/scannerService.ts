@@ -117,10 +117,6 @@ export function liveScanner(
     // Todos os filtros passaram — calcular score de匹配
     const score = calculateMatchScore(analytics, threshold);
 
-    // Identificar qual time está pressionando
-    const pressingTeam = analytics.dangerousAttacksLast10Min.home >= analytics.dangerousAttacksLast10Min.away
-      ? 'home' : 'away';
-
     const matchLabel = `Partida ${analytics.matchId}`;
     const scoreStr = `${Math.round(analytics.xG.home)}-${Math.round(analytics.xG.away)}`;
 

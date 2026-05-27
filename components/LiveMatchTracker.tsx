@@ -251,7 +251,7 @@ const styles = {
     padding: '4px 0',
     fontSize: '13px',
   } as React.CSSProperties,
-  statBar: (homePct: number, awayPct: number) =>
+  statBar: (_homePct: number, _awayPct: number) =>
     ({
       display: 'flex',
       height: '6px',
@@ -305,18 +305,23 @@ const styles = {
 // Sub-componentes de Visualização
 // =============================================================================
 
-/** Barra de probabilidades horizontal */
-function ProbabilityBar({ home, draw, away }: LiveProbabilities): React.ReactElement {
+interface ProbabilityBarProps {
+  homeWin: number;
+  draw: number;
+  awayWin: number;
+}
+
+function ProbabilityBar({ homeWin, draw, awayWin }: ProbabilityBarProps): React.ReactElement {
   return (
     <div style={styles.probBar}>
-      <div style={styles.probSegment(COLORS.home, home * 100)}>
-        {(home * 100).toFixed(1)}%
+      <div style={styles.probSegment(COLORS.home, homeWin * 100)}>
+        {(homeWin * 100).toFixed(1)}%
       </div>
       <div style={styles.probSegment(COLORS.draw, draw * 100)}>
         {(draw * 100).toFixed(1)}%
       </div>
-      <div style={styles.probSegment(COLORS.away, away * 100)}>
-        {(away * 100).toFixed(1)}%
+      <div style={styles.probSegment(COLORS.away, awayWin * 100)}>
+        {(awayWin * 100).toFixed(1)}%
       </div>
     </div>
   );
