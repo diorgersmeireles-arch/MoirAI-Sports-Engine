@@ -111,16 +111,27 @@ moirai-sports-engine/
 │           └── matches/
 │               └── live/route.ts    # GET: partidas ao vivo (Redis pattern)
 ├── components/
-│   └── LiveMatchTracker.tsx    # Componente React de simulação ao vivo (693 linhas)
+│   ├── LiveMatchTracker.tsx    # Componente React de simulação ao vivo (693 linhas)
+│   └── tactical/
+│       └── SpatialPitchRender.tsx  # Canvas 25 FPS: atletas, bola, heatmap (MOI-LMCC)
 ├── data/
 │   └── seed.ts                 # Dados mockados: 5 comps, 23 times, 18 jogadores, 14 partidas, multi-sport stats, 7 atributos, 3 cartões + staff, injuries, transfers, lineups, rankings, odds, multi-tenant, embeddings, knowledge graph, ml features, audit logs
 ├── database/
 │   ├── schema.sql              # Schema PostgreSQL: 51 tabelas, 19 ENUMs, Knowledge Graph, ML Feature Store, Event Versioning, Audit & Governance, multi-tenant, embeddings, MV
+│   ├── clickhouse_observability.sql     # ClickHouse DDL: MergeTree, MV, Kafka Engine, NOC queries
 │   └── migration_athletes.sql  # Perfil individual: atributos, cartões, teia
+├── hooks/
+│   └── useMatchWebSocket.ts    # WebSocket resiliente com backoff exponencial (MOI-LMCC)
+├── lib/
+├── middleware/
+│   ├── tenant_boundary.py  # FastAPI: valida X-Tenant-ID + alerta SOC em violação (MOI-SEC)
+│   └── rbac_enforcer.py    # FastAPI: verifica system_role com bypass super_admin (MOI-SEC)
 ├── public/                     # Ativos estáticos (vazio)
 ├── services/
 │   ├── predictionEngine.ts     # Motor preditivo baseado em Poisson (283 linhas)
 │   └── scannerService.ts       # Scanner ao vivo e alertas (211 linhas)
+├── store/
+│   └── useLiveMatchStore.ts    # Zustand Slice Pattern: latência zero, 25 FPS (MOI-LMCC)
 ├── types/
 │   ├── sports.ts               # Contratos de dados do domínio (279 linhas)
 │   └── database.ts             # Tipagens do banco de dados (1216 linhas, 87 exports)
@@ -884,6 +895,61 @@ graph LR
 
 ---
 
+## 🎮 LiveMatchCommandCenter (MOI-LMCC)
+
+### Architecture
+```
+useMatchWebSocket (hook)
+  └─ WebSocket → ws://gateway/live/match/{id}?tenant_id={tid}
+       ├─ tracking_frame → setLiveFrame(frame)  [Zustand]
+       └─ other event    → pushEvent(event)     [Zustand]
+                              └─ eventTicker (last 50)
+SpatialPitchRender (Canvas 800×500)
+  └─ useLiveMatchStore → spatialCoordinates
+       ├─ players[] → circle per athlete (home=#1d4ed8, away=#b91c1c)
+       └─ ball      → circle with Z-axis radius boost
+```
+
+### Rate Limiting (MoirAISecurityGateway)
+
+| Tier | rpm | Burst | Action |
+|------|-----|-------|--------|
+| standard | 60 | 5 | HTTP 429 |
+| enterprise_club | 1200 | 50 | HTTP 429 |
+| betting_provider | 10000 | 500 | HTTP 429 |
+
+### RBAC Enforcement Chain
+```
+Request → tenant_boundary.py (X-Tenant-ID + Redis SISMEMBER)
+        → rbac_enforcer.py (system_role check, super_admin bypass)
+        → log_security_violation() on boundary breach → audit_logs
+```
+
+---
+
+## 🏗️ ClickHouse Observability Engine (MOI-CH)
+
+### Tables
+
+| Table | Engine | Purpose | TTL |
+|-------|--------|---------|-----|
+| `api_network_metrics` | MergeTree | Raw API gateway logs | 30 days |
+| `mv_api_network_performance_minutely` | SummingMergeTree | Per-minute aggregates by tenant+endpoint | — |
+| `websocket_telemetry_metrics` | ReplacingMergeTree | WS connection/throughput telemetry | 14 days |
+| `kafka_network_ingress_queue` | Kafka | Direct Kafka consumer (JSONEachRow) | — |
+
+### Data Flow
+```
+Kafka (moirai.infra.network.logs)
+  └─ kafka_network_ingress_queue (Kafka Engine)
+       └─ kafka_network_ingress_mv (MV)
+            └─ api_network_metrics (MergeTree)
+                 └─ v_api_network_performance_minutely_mv (MV)
+                      └─ mv_api_network_performance_minutely (SummingMergeTree)
+```
+
+---
+
 ## 🚧 Issues Conhecidos / Pendências
 
 | Issue                                                     | Severidade | Arquivo                        | Descrição                                      |
@@ -951,6 +1017,15 @@ O volume de eventos em tempo real saturará o modelo puramente relacional:
 ```
 
 ## 📝 CHANGELOG
+
+### 2026-05-27 (v10) — v0.3.5-LMCC · LiveMatchCommandCenter + SecurityGateway + ClickHouse
+
+- **LiveMatchCommandCenter (MOI-LMCC)**: Zustand store `useLiveMatchStore` com Slice Pattern (possession, offensivePressure, liveXg, spatialCoordinates, eventTicker), WebSocket hook `useMatchWebSocket` com backoff exponencial (MAX_RETRIES=10), Canvas renderer `SpatialPitchRender` com atletas por time (home=blue/away=red) + bola com eixo Z
+- **MoirAISecurityGateway (MOI-SEC)**: Rate limiting por tier (standard=60rpm, enterprise=1200rpm, betting=10000rpm), middleware `tenant_boundary.py` com validação Redis + SOC alert, enforcer `rbac_enforcer.py` com bypass para super_admin
+- **ClickHouse Observability (MOI-CH)**: `api_network_metrics` MergeTree (TTL 30d), `mv_api_network_performance_minutely` SummingMergeTree, MV de agregação contínua, `websocket_telemetry_metrics` ReplacingMergeTree (TTL 14d), Kafka Engine ingress queue com MV de consumo
+- **Dependências**: zustand adicionado ao package.json
+- **Arquivos**: store/, hooks/, components/tactical/, middleware/, database/clickhouse_observability.sql
+- **Build**: 16 routes, 0 errors
 
 ### 2026-05-27 (v9) — v0.3.5-Admin · MOI-ADM
 
