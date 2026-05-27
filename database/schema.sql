@@ -131,8 +131,68 @@ CREATE TABLE team_players (
   start_date    DATE NOT NULL,
   end_date      DATE,
   is_active     BOOLEAN NOT NULL DEFAULT TRUE,
+  created_by    UUID,
+  updated_by    UUID,
   UNIQUE (team_id, player_id, season_id)
 );
+
+CREATE INDEX idx_team_players_team_season ON team_players(team_id, season_id);
+
+-- =============================================================================
+-- ATRIBUTOS DO ATLETA (Core Analytics)
+-- =============================================================================
+
+CREATE TABLE player_attributes (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  player_id         UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  sport_id          sport_type NOT NULL,
+  season_id         UUID REFERENCES seasons(id),
+  measured_at       DATE NOT NULL DEFAULT CURRENT_DATE,
+  overall           SMALLINT NOT NULL CHECK (overall BETWEEN 0 AND 100),
+  potential         SMALLINT CHECK (potential BETWEEN 0 AND 100),
+  pace              SMALLINT CHECK (pace BETWEEN 0 AND 100),
+  acceleration      SMALLINT CHECK (acceleration BETWEEN 0 AND 100),
+  stamina           SMALLINT CHECK (stamina BETWEEN 0 AND 100),
+  strength          SMALLINT CHECK (strength BETWEEN 0 AND 100),
+  agility           SMALLINT CHECK (agility BETWEEN 0 AND 100),
+  balance           SMALLINT CHECK (balance BETWEEN 0 AND 100),
+  jumping           SMALLINT CHECK (jumping BETWEEN 0 AND 100),
+  reaction          SMALLINT CHECK (reaction BETWEEN 0 AND 100),
+  dribbling         SMALLINT CHECK (dribbling BETWEEN 0 AND 100),
+  passing           SMALLINT CHECK (passing BETWEEN 0 AND 100),
+  shooting          SMALLINT CHECK (shooting BETWEEN 0 AND 100),
+  finishing         SMALLINT CHECK (finishing BETWEEN 0 AND 100),
+  long_shots        SMALLINT CHECK (long_shots BETWEEN 0 AND 100),
+  crossing          SMALLINT CHECK (crossing BETWEEN 0 AND 100),
+  heading           SMALLINT CHECK (heading BETWEEN 0 AND 100),
+  marking           SMALLINT CHECK (marking BETWEEN 0 AND 100),
+  tackling          SMALLINT CHECK (tackling BETWEEN 0 AND 100),
+  interceptions     SMALLINT CHECK (interceptions BETWEEN 0 AND 100),
+  vision            SMALLINT CHECK (vision BETWEEN 0 AND 100),
+  composure         SMALLINT CHECK (composure BETWEEN 0 AND 100),
+  positioning       SMALLINT CHECK (positioning BETWEEN 0 AND 100),
+  decision_making   SMALLINT CHECK (decision_making BETWEEN 0 AND 100),
+  teamwork          SMALLINT CHECK (teamwork BETWEEN 0 AND 100),
+  leadership        SMALLINT CHECK (leadership BETWEEN 0 AND 100),
+  aggression        SMALLINT CHECK (aggression BETWEEN 0 AND 100),
+  diving            SMALLINT CHECK (diving BETWEEN 0 AND 100),
+  handling          SMALLINT CHECK (handling BETWEEN 0 AND 100),
+  kicking           SMALLINT CHECK (kicking BETWEEN 0 AND 100),
+  reflexes          SMALLINT CHECK (reflexes BETWEEN 0 AND 100),
+  extra_attributes  JSONB,
+  valid_from        TIMESTAMPTZ NOT NULL DEFAULT NOW(),  -- SCD Type 2
+  valid_to          TIMESTAMPTZ,
+  is_active         BOOLEAN NOT NULL DEFAULT TRUE,
+  created_by        UUID,
+  updated_by        UUID,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at        TIMESTAMPTZ,
+  UNIQUE (player_id, season_id, measured_at)
+);
+
+CREATE INDEX idx_player_attributes_player ON player_attributes(player_id);
+CREATE INDEX idx_player_attributes_sport ON player_attributes(sport_id);
+CREATE INDEX idx_player_attributes_overall ON player_attributes(overall DESC);
 
 -- =============================================================================
 -- STAFF / COMISSÃO TÉCNICA
@@ -209,7 +269,10 @@ CREATE TABLE transfers (
   sell_on_clause    DECIMAL(5,2),                  -- % de mais-valia futura
   add_ons           JSONB,                         -- Bônus por performance
   notes             TEXT,
-  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_by        UUID,
+  updated_by        UUID,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at        TIMESTAMPTZ
 );
 
 CREATE INDEX idx_transfers_player ON transfers(player_id);
@@ -217,63 +280,6 @@ CREATE INDEX idx_transfers_from ON transfers(from_team_id);
 CREATE INDEX idx_transfers_to ON transfers(to_team_id);
 CREATE INDEX idx_transfers_date ON transfers(transfer_date);
 CREATE INDEX idx_transfers_fee ON transfers(transfer_fee DESC);
-
--- =============================================================================
--- SISTEMA TÁTICO (ESCALAÇÕES / LINEUPS)
--- =============================================================================
-
-CREATE TABLE match_lineups (
-  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  match_id          UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
-  team_id           UUID NOT NULL REFERENCES teams(id),
-  formation         VARCHAR(20) NOT NULL,           -- Ex: "4-3-3", "4-4-2", "3-5-2"
-  coach_id          UUID REFERENCES staff(id),      -- Técnico responsável
-  tactics           JSONB,                          -- Instruções táticas, estilo de jogo
-  is_confirmed      BOOLEAN DEFAULT FALSE,          -- Escalação oficial confirmada
-  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (match_id, team_id)
-);
-
-CREATE INDEX idx_match_lineups_match ON match_lineups(match_id);
-
-CREATE TABLE lineup_players (
-  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  lineup_id         UUID NOT NULL REFERENCES match_lineups(id) ON DELETE CASCADE,
-  player_id         UUID NOT NULL REFERENCES players(id),
-  position_x        DECIMAL(5,2),                  -- 0-100 (% do campo horizontal)
-  position_y        DECIMAL(5,2),                  -- 0-100 (% do campo vertical)
-  shirt_number      SMALLINT,
-  role              VARCHAR(50),                   -- "captain", "vice_captain", "set_piece_taker"
-  is_starter        BOOLEAN NOT NULL DEFAULT TRUE,
-  substituted_out   BOOLEAN DEFAULT FALSE,
-  substituted_in    BOOLEAN DEFAULT FALSE,
-  UNIQUE (lineup_id, player_id)
-);
-
-CREATE INDEX idx_lineup_players_lineup ON lineup_players(lineup_id);
-CREATE INDEX idx_lineup_players_player ON lineup_players(player_id);
-
--- =============================================================================
--- RANKING GLOBAL (Jogadores, Clubes, Ligas)
--- =============================================================================
-
-CREATE TABLE rankings (
-  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  sport_id          sport_type NOT NULL,
-  ranking_type      ranking_type NOT NULL,
-  entity_id         UUID NOT NULL,                  -- Pode ser player_id, team_id, competition_id
-  entity_type       VARCHAR(30) NOT NULL CHECK (entity_type IN ('player', 'team', 'competition')),
-  score             DECIMAL(10,2) NOT NULL,
-  position          SMALLINT,                       -- Posição no ranking (opcional, calculado)
-  metadata          JSONB,                          -- Dados extras para contexto
-  calculated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (sport_id, ranking_type, entity_id, calculated_at)
-);
-
-CREATE INDEX idx_rankings_sport_type ON rankings(sport_id, ranking_type);
-CREATE INDEX idx_rankings_score ON rankings(score DESC);
-CREATE INDEX idx_rankings_entity ON rankings(entity_id);
-CREATE INDEX idx_rankings_calculated ON rankings(calculated_at);
 
 -- =============================================================================
 -- PARTIDAS
@@ -303,8 +309,11 @@ CREATE TABLE matches (
   attendance      INT CHECK (attendance >= 0),
   referee         VARCHAR(200),
   metadata        JSONB,
+  created_by      UUID,
+  updated_by      UUID,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at      TIMESTAMPTZ
 );
 
 CREATE INDEX idx_matches_sport ON matches(sport_id);
@@ -313,9 +322,131 @@ CREATE INDEX idx_matches_competition ON matches(competition_id, season_id);
 CREATE INDEX idx_matches_team ON matches(home_team_id, away_team_id);
 CREATE INDEX idx_matches_scheduled ON matches(scheduled_at);
 CREATE INDEX idx_matches_live ON matches(status, scheduled_at) WHERE status = 'live';
-CREATE INDEX idx_team_players_team_season ON team_players(team_id, season_id);
-CREATE INDEX idx_player_attributes_player ON player_attributes(player_id);
-CREATE INDEX idx_football_stats_player ON football_player_stats(player_id);
+
+-- =============================================================================
+-- SISTEMA TÁTICO (ESCALAÇÕES / LINEUPS)
+-- =============================================================================
+
+CREATE TABLE match_lineups (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  match_id          UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+  team_id           UUID NOT NULL REFERENCES teams(id),
+  formation         VARCHAR(20) NOT NULL,
+  coach_id          UUID REFERENCES staff(id),
+  tactics           JSONB,
+  created_by        UUID,                              -- Auditoria
+  updated_by        UUID,
+  is_confirmed      BOOLEAN DEFAULT FALSE,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at        TIMESTAMPTZ,
+  UNIQUE (match_id, team_id)
+);
+
+CREATE INDEX idx_match_lineups_match ON match_lineups(match_id);
+
+CREATE TABLE lineup_players (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  lineup_id         UUID NOT NULL REFERENCES match_lineups(id) ON DELETE CASCADE,
+  player_id         UUID NOT NULL REFERENCES players(id),
+  position_x        DECIMAL(5,2),
+  position_y        DECIMAL(5,2),
+  shirt_number      SMALLINT,
+  role              VARCHAR(50),
+  is_starter        BOOLEAN NOT NULL DEFAULT TRUE,
+  substituted_out   BOOLEAN DEFAULT FALSE,
+  substituted_in    BOOLEAN DEFAULT FALSE,
+  UNIQUE (lineup_id, player_id)
+);
+
+CREATE INDEX idx_lineup_players_lineup ON lineup_players(lineup_id);
+CREATE INDEX idx_lineup_players_player ON lineup_players(player_id);
+
+-- =============================================================================
+-- RANKING GLOBAL (Jogadores, Clubes, Ligas)
+-- =============================================================================
+
+CREATE TABLE rankings (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  sport_id          sport_type NOT NULL,
+  ranking_type      ranking_type NOT NULL,
+  entity_id         UUID NOT NULL,
+  entity_type       VARCHAR(30) NOT NULL CHECK (entity_type IN ('player', 'team', 'competition')),
+  score             DECIMAL(10,2) NOT NULL,
+  position          SMALLINT,
+  metadata          JSONB,
+  valid_from        TIMESTAMPTZ NOT NULL DEFAULT NOW(),   -- SCD Type 2
+  valid_to          TIMESTAMPTZ,                          -- NULL = versão atual
+  created_by        UUID,
+  updated_by        UUID,
+  calculated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at        TIMESTAMPTZ
+);
+
+CREATE INDEX idx_rankings_sport_type ON rankings(sport_id, ranking_type);
+CREATE INDEX idx_rankings_score ON rankings(score DESC);
+CREATE INDEX idx_rankings_entity ON rankings(entity_id);
+CREATE INDEX idx_rankings_calculated ON rankings(calculated_at);
+
+-- =============================================================================
+-- MÍDIA E ASSETS (Fotos, Vídeos, Escudos, Streams)
+-- =============================================================================
+
+CREATE TABLE media_assets (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  entity_type       VARCHAR(30) NOT NULL,         -- 'player', 'team', 'competition', 'match', 'venue'
+  entity_id         UUID NOT NULL,
+  media_type        VARCHAR(30) NOT NULL,         -- 'image', 'video', 'logo', 'icon', 'stream'
+  url               TEXT NOT NULL,
+  title             VARCHAR(200),
+  alt_text          VARCHAR(500),
+  width             INT,
+  height            INT,
+  file_size_bytes   BIGINT,
+  mime_type         VARCHAR(50),
+  is_primary        BOOLEAN DEFAULT FALSE,        -- Imagem principal do perfil
+  sort_order        SMALLINT DEFAULT 0,
+  metadata          JSONB,
+  created_by        UUID,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at        TIMESTAMPTZ
+);
+
+CREATE INDEX idx_media_entity ON media_assets(entity_type, entity_id);
+CREATE INDEX idx_media_type ON media_assets(media_type);
+CREATE INDEX idx_media_primary ON media_assets(entity_type, entity_id, is_primary) WHERE is_primary = TRUE;
+
+-- =============================================================================
+-- PROBABILIDADES E APOSTAS (Odds / Betting)
+-- =============================================================================
+
+CREATE TABLE odds (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  match_id          UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+  bookmaker         VARCHAR(100) NOT NULL,
+  home_win          DECIMAL(10,4) NOT NULL CHECK (home_win > 0),
+  draw              DECIMAL(10,4) CHECK (draw > 0),      -- NULL para esportes sem empate
+  away_win          DECIMAL(10,4) NOT NULL CHECK (away_win > 0),
+  -- Mercados adicionais (JSONB para flexibilidade)
+  over_under        JSONB,                               -- Ex: {"2.5": {"over": 1.80, "under": 2.00}}
+  both_teams_score  JSONB,                               -- Ex: {"yes": 1.90, "no": 1.95}
+  asian_handicap    JSONB,                               -- Ex: {"-1.5": {"home": 2.10, "away": 1.75}}
+  -- Metadados
+  is_boosted        BOOLEAN DEFAULT FALSE,                -- Odd promocional?
+  probability_home  DECIMAL(5,2),                         -- Probabilidade implícita (%)
+  probability_draw  DECIMAL(5,2),
+  probability_away  DECIMAL(5,2),
+  margin            DECIMAL(5,2),                         -- Vigorish / margem da casa
+  source            VARCHAR(100),
+  created_by        UUID,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (match_id, bookmaker, created_at)
+);
+
+CREATE INDEX idx_odds_match ON odds(match_id);
+CREATE INDEX idx_odds_bookmaker ON odds(bookmaker);
+CREATE INDEX idx_odds_updated ON odds(updated_at DESC);
 
 -- =============================================================================
 -- TABELAS ESPECÍFICAS DE FUTEBOL
@@ -427,8 +558,12 @@ CREATE TABLE football_player_stats (
   saves           SMALLINT DEFAULT 0,          -- Goleiros
   goals_conceded  SMALLINT DEFAULT 0,
   rating          DECIMAL(4,2) CHECK (rating BETWEEN 0 AND 10),
+  created_by      UUID,
+  updated_by      UUID,
   UNIQUE (match_id, player_id)
 );
+
+CREATE INDEX idx_football_stats_player ON football_player_stats(player_id);
 
 -- =============================================================================
 -- TABELAS ESPECÍFICAS DE VÔLEI
@@ -803,6 +938,11 @@ CREATE TABLE standings (
   goal_difference SMALLINT DEFAULT 0,
   -- Estatísticas extras (JSONB para flexibilidade)
   extra_stats     JSONB,
+  valid_from      TIMESTAMPTZ NOT NULL DEFAULT NOW(),  -- SCD Type 2
+  valid_to        TIMESTAMPTZ,
+  created_by      UUID,
+  updated_by      UUID,
+  deleted_at      TIMESTAMPTZ,
   UNIQUE (season_id, team_id, group_name)
 );
 

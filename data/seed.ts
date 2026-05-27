@@ -2,7 +2,7 @@ import type {
   Competition, Season, Team, Player, Match, Standing,
   FootballMatchStats, FootballPlayerStats, PlayerAttributes,
   PlayerCard, Staff, TeamStaff, PlayerInjury, Transfer,
-  MatchLineup, LineupPlayer, Ranking,
+  MatchLineup, LineupPlayer, Ranking, MediaAsset, Odds,
 } from '../types/database';
 
 export const competitions: Competition[] = [
@@ -293,6 +293,25 @@ export const rankingsData: Ranking[] = [
   { id: 'rk3', sportId: 'football', rankingType: 'club_world', entityId: 't2', entityType: 'team', score: 95.0, position: 1, metadata: { points: 80, season: '2024' }, calculatedAt: '2025-01-01T00:00:00Z' },
   { id: 'rk4', sportId: 'football', rankingType: 'club_world', entityId: 't1', entityType: 'team', score: 92.0, position: 2, metadata: { points: 75, season: '2024' }, calculatedAt: '2025-01-01T00:00:00Z' },
   { id: 'rk5', sportId: 'football', rankingType: 'player_potential', entityId: 'p3', entityType: 'player', score: 87.0, position: 1, calculatedAt: '2025-04-15T00:00:00Z' },
+];
+
+// =============================================================================
+// MEDIA ASSETS
+// =============================================================================
+export const mediaAssetsData: MediaAsset[] = [
+  { id: 'ma1', entityType: 'team', entityId: 't1', mediaType: 'logo', url: '/logos/flamengo.png', title: 'Flamengo', isPrimary: true, createdAt: '2025-01-01T00:00:00Z' },
+  { id: 'ma2', entityType: 'team', entityId: 't2', mediaType: 'logo', url: '/logos/palmeiras.png', title: 'Palmeiras', isPrimary: true, createdAt: '2025-01-01T00:00:00Z' },
+  { id: 'ma3', entityType: 'player', entityId: 'p1', mediaType: 'image', url: '/players/gabigol.png', title: 'Gabigol 2025', altText: 'Gabriel Barbosa comemorando', isPrimary: true, sortOrder: 1, createdAt: '2025-01-15T00:00:00Z' },
+  { id: 'ma4', entityType: 'player', entityId: 'p2', mediaType: 'image', url: '/players/arrascaeta.png', title: 'Arrascaeta 2025', isPrimary: true, createdAt: '2025-01-15T00:00:00Z' },
+];
+
+// =============================================================================
+// ODDS
+// =============================================================================
+export const oddsData: Odds[] = [
+  { id: 'od1', matchId: 'm1', bookmaker: 'Bet365', homeWin: 1.85, draw: 3.40, awayWin: 4.50, overUnder: { '2.5': { over: 1.90, under: 1.95 } }, bothTeamsScore: { yes: 1.80, no: 2.05 }, isBoosted: false, probabilityHome: 54.1, probabilityDraw: 29.4, probabilityAway: 22.2, margin: 5.7, source: 'api', createdAt: '2025-04-10T12:00:00Z', updatedAt: '2025-04-10T12:00:00Z' },
+  { id: 'od2', matchId: 'm1', bookmaker: 'Sportingbet', homeWin: 1.80, draw: 3.50, awayWin: 4.60, isBoosted: true, probabilityHome: 55.6, probabilityDraw: 28.6, probabilityAway: 21.7, margin: 5.9, source: 'api', createdAt: '2025-04-10T12:00:00Z', updatedAt: '2025-04-11T10:00:00Z' },
+  { id: 'od3', matchId: 'm5', bookmaker: 'Bet365', homeWin: 2.10, draw: 3.20, awayWin: 3.60, isBoosted: false, createdAt: '2025-04-15T12:00:00Z', updatedAt: '2025-04-15T12:00:00Z' },
 ];
 
 export const allTeams = [...teams, ...volleyballTeams, ...basketballTeams, ...baseballTeams];

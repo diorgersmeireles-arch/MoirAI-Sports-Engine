@@ -140,6 +140,8 @@ export interface TeamPlayer {
   startDate: string;
   endDate?: string;
   isActive: boolean;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 // =============================================================================
@@ -206,7 +208,10 @@ export interface Transfer {
   sellOnClause?: number;
   addOns?: Record<string, unknown>;
   notes?: string;
+  createdBy?: string;
+  updatedBy?: string;
   createdAt: string;
+  deletedAt?: string;
 }
 
 // =============================================================================
@@ -220,8 +225,12 @@ export interface MatchLineup {
   formation: string;
   coachId?: string;
   tactics?: Record<string, unknown>;
+  createdBy?: string;
+  updatedBy?: string;
   isConfirmed: boolean;
   createdAt: string;
+  updatedAt?: string;
+  deletedAt?: string;
 }
 
 export interface LineupPlayer {
@@ -250,7 +259,61 @@ export interface Ranking {
   score: number;
   position?: number;
   metadata?: Record<string, unknown>;
+  validFrom?: string;
+  validTo?: string;
+  createdBy?: string;
+  updatedBy?: string;
   calculatedAt: string;
+  deletedAt?: string;
+}
+
+// =============================================================================
+// MÍDIA E ASSETS
+// =============================================================================
+
+export interface MediaAsset {
+  id: string;
+  entityType: string;
+  entityId: string;
+  mediaType: string;
+  url: string;
+  title?: string;
+  altText?: string;
+  width?: number;
+  height?: number;
+  fileSizeBytes?: number;
+  mimeType?: string;
+  isPrimary: boolean;
+  sortOrder?: number;
+  metadata?: Record<string, unknown>;
+  createdBy?: string;
+  createdAt: string;
+  deletedAt?: string;
+}
+
+// =============================================================================
+// ODDS / BETTING
+// =============================================================================
+
+export interface Odds {
+  id: string;
+  matchId: string;
+  bookmaker: string;
+  homeWin: number;
+  draw?: number;
+  awayWin: number;
+  overUnder?: Record<string, unknown>;
+  bothTeamsScore?: Record<string, unknown>;
+  asianHandicap?: Record<string, unknown>;
+  isBoosted: boolean;
+  probabilityHome?: number;
+  probabilityDraw?: number;
+  probabilityAway?: number;
+  margin?: number;
+  source?: string;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // =============================================================================
@@ -281,8 +344,11 @@ export interface Match {
   attendance?: number;
   referee?: string;
   metadata?: Record<string, unknown>;
+  createdBy?: string;
+  updatedBy?: string;
   createdAt: string;
   updatedAt: string;
+  deletedAt?: string;
 }
 
 // =============================================================================
@@ -384,6 +450,8 @@ export interface FootballPlayerStats {
   saves: number;
   goalsConceded: number;
   rating: number;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 // =============================================================================
@@ -721,6 +789,11 @@ export interface Standing {
   goalsAgainst: number;
   goalDifference: number;
   extraStats?: Record<string, unknown>;
+  validFrom?: string;
+  validTo?: string;
+  createdBy?: string;
+  updatedBy?: string;
+  deletedAt?: string;
 }
 
 // =============================================================================
@@ -789,8 +862,13 @@ export interface PlayerAttributes {
   kicking?: number;
   reflexes?: number;
   extraAttributes?: Record<string, number>;
+  validFrom?: string;
+  validTo?: string;
   isActive: boolean;
+  createdBy?: string;
+  updatedBy?: string;
   createdAt: string;
+  deletedAt?: string;
 }
 
 // =============================================================================

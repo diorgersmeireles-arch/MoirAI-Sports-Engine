@@ -713,16 +713,75 @@ graph LR
 
 ---
 
+## 📐 Contratos JSONB (MOI-005)
+
+Campos JSONB livres exigem validação na camada de aplicação (FastAPI/Pydantic):
+
+| Tabela | Coluna | Chaves esperadas |
+|--------|--------|------------------|
+| `players.metadata` | `metadata` | `{ position, preferred_foot/shirt_number (football) \| reach_cm (volleyball) \| wingspan_cm (basketball) \| primary_position/batting_hand (baseball) }` |
+| `matches.metadata` | `metadata` | `{ weather, referee_team, tv_channel, attendance_breakdown }` |
+| `standings.extra_stats` | `extra_stats` | `{ form (string[]), streak (string), home_record, away_record }` |
+| `transfers.add_ons` | `add_ons` | `{ appearances_bonus, goals_bonus, promotion_clause, international_cap_bonus }` |
+| `match_lineups.tactics` | `tactics` | `{ style (string), pressing_intensity (1-10), defensive_line, build_up_play, set_pieces }` |
+| `odds.over_under` | `over_under` | `{ "2.5": { over, under }, "3.5": { over, under } }` |
+| `odds.both_teams_score` | `both_teams_score` | `{ yes, no }` |
+| `odds.asian_handicap` | `asian_handicap` | `{ "-1.5": { home, away }, "+0.5": { home, away } }` |
+| `media_assets.metadata` | `metadata` | `{ copyright, photographer, source_url, dominant_color }` |
+| `rankings.metadata` | `metadata` | `{ points, season, trend, previous_position }` |
+| `players.metadata` | `extra_attributes` | `{ weak_foot, skill_moves, injury_prone, consistency }` |
+
+## 🎯 Itens Estratégicos (MOI-008/009/010)
+
+### MOI-008 — GenAI Readiness (OPPORTUNITY)
+O schema atual já fornece 80% dos dados necessários para treinar LLMs esportivos:
+- Views consolidadas (`v_player_profile`, `v_player_career_stats`) como fonte para RAG
+- Eventos em timeline (`football_events`) para geração de crônicas e narrações automáticas
+- Materialized Views (`mv_top_scorers`, `mv_team_recent_form`) para scout reports
+- Próximo passo: pipeline de prompt engineering + fine-tuning com dados históricos
+
+### MOI-009 — Big Data & Streaming (HIGH)
+O volume de eventos em tempo real saturará o modelo puramente relacional:
+- **CQRS**: separar writes (PostgreSQL transacional) de reads (Materialized Views + cache)
+- **Event Sourcing**: eventos de partida como fonte da verdade, não apenas log
+- **TimescaleDB** para dados temporais de eventos (hypertables com chunking automático)
+- **ClickHouse** para analytics pesados (consolidado de player_stats por temporada)
+- **Kafka/Redis Streams** para ingestão de dados ao vivo
+
+### MOI-010 — Arquitetura Alvo (4 Camadas)
+```
+┌──────────────────────────────────────────────────────────────┐
+│  moirai-core    → PostgreSQL (transacional)                  │
+│                  matches, players, teams, standings, odds    │
+├──────────────────────────────────────────────────────────────┤
+│  moirai-live    → Redis (cache + pub/sub) + WebSocket       │
+│                  eventos ao vivo, odds em tempo real         │
+├──────────────────────────────────────────────────────────────┤
+│  moirai-analytics → ClickHouse (OLAP) + Materialized Views  │
+│                    MV, SCD Type 2, rankings, scout reports  │
+├──────────────────────────────────────────────────────────────┤
+│  moirai-ai      → LLM + RAG + TensorFlow/PyTorch            │
+│                  predição Poisson, scouting IA, risco lesão  │
+└──────────────────────────────────────────────────────────────┘
+```
+
 ## 📝 CHANGELOG
 
-### 2026-05-27 (v3)
+### 2026-05-27 (v5)
 
-- **Scanner API** (`/api/scanner`): agora usa `liveScanner()` real do `scannerService.ts` com threshold configurável, em vez de `Math.random()`
-- **Multi-sport seed data**: adicionados times, jogadores e partidas para vôlei (4 times, 3 jogadores, 2 partidas), basquete (4 times, 3 jogadores, 1 partida) e baseball (3 times, 2 jogadores, 1 partida)
-- **Comparador de Atletas** (`/compare`): página nova com selects para dois jogadores, gráfico radar sobreposto (verde/vermelho) e tabela de diferenças
-- **Navegação**: link "Comparar" adicionado à navbar
-- **Loading/Error states**: páginas de Partidas, Atletas e Competições agora têm `loading`, `error` e estados vazios com skeleton animado e mensagens em português
-- **Build**: 14 rotas compilando sem erros (7 pages + 5 API + _not-found)
+- **MOI-001 (CRITICAL)**: Circular DDL corrigida — `match_lineups` movida para depois de `matches`
+- **MOI-002 (CRITICAL)**: `player_attributes` restaurada no schema.sql com todos os 30+ atributos, índices e SCD Type 2
+- **MOI-003 (HIGH)**: Auditoria Enterprise adicionada: `created_by UUID`, `updated_by UUID`, `deleted_at TIMESTAMPTZ` em `matches`, `transfers`, `standings`, `team_players`, `match_lineups`, `football_player_stats`
+- **MOI-004 (HIGH)**: SCD Type 2 implementado: `valid_from`/`valid_to` em `rankings`, `player_attributes`, `standings`
+- **MOI-006 (HIGH)**: `media_assets` adicionada — tabela polimórfica para imagens, logos, vídeos, streams (entity_type/entity_id)
+- **MOI-007 (MEDIUM)**: `odds` adicionada — odds por bookmaker, over/under, both_teams_score, asian_handicap, margem, probabilidade implícita
+- **Índices**: `idx_football_stats_player`, `idx_team_players_team_season` posicionados corretamente após suas tabelas
+- **Seed**: `mediaAssetsData` (4), `oddsData` (3)
+- **MOI-005 (MEDIUM)**: Contratos JSONB documentados para todos os 11 campos com chaves esperadas
+- **MOI-008 (OPPORTUNITY)**: GenAI readiness documentado — views + eventos + MVs como fonte para LLMs
+- **MOI-009 (HIGH)**: Estratégia de Big Data — CQRS, Event Sourcing, TimescaleDB, ClickHouse, Kafka
+- **MOI-010 (STRATEGIC)**: Arquitetura alvo em 4 camadas (core, live, analytics, ai)
+- **Types**: Interfaces `MediaAsset`, `Odds` + audit fields em interfaces existentes
 
 ### 2026-05-27 (v4)
 
