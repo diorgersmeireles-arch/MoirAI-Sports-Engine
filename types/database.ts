@@ -15,6 +15,10 @@ export type BaseballEventType = 'hit' | 'home_run' | 'strikeout' | 'walk' | 'err
 export type FoulType = 'personal' | 'technical' | 'flagrant' | 'offensive';
 export type GoalType = 'open_play' | 'penalty' | 'free_kick' | 'corner' | 'header' | 'own_goal';
 export type HitType = 'single' | 'double' | 'triple' | 'home_run';
+export type TransferType = 'permanent' | 'loan' | 'free_transfer' | 'swap' | 'youth_promotion';
+export type InjurySeverity = 'minor' | 'moderate' | 'severe' | 'career_threatening';
+export type RankingType = 'player_overall' | 'team_form' | 'top_scorer' | 'top_assists' | 'club_world' | 'player_potential' | 'club_ranking';
+export type StaffRole = 'head_coach' | 'assistant_coach' | 'fitness_coach' | 'scout' | 'analyst' | 'physiotherapist' | 'doctor' | 'director_of_football' | 'sporting_director';
 
 // =============================================================================
 // DOMÍNIO (Compartilhado)
@@ -136,6 +140,117 @@ export interface TeamPlayer {
   startDate: string;
   endDate?: string;
   isActive: boolean;
+}
+
+// =============================================================================
+// STAFF / COMISSÃO TÉCNICA
+// =============================================================================
+
+export interface Staff {
+  id: string;
+  fullName: string;
+  nationality?: string;
+  birthDate?: string;
+  role: StaffRole;
+  specialty?: string;
+  imageUrl?: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface TeamStaff {
+  id: string;
+  teamId: string;
+  seasonId: string;
+  staffId: string;
+  startDate: string;
+  endDate?: string;
+  isActive: boolean;
+}
+
+// =============================================================================
+// LESÕES
+// =============================================================================
+
+export interface PlayerInjury {
+  id: string;
+  playerId: string;
+  injuryType: string;
+  severity: InjurySeverity;
+  bodyPart?: string;
+  startDate: string;
+  expectedReturn?: string;
+  actualReturn?: string;
+  gamesMissed?: number;
+  recurrence?: boolean;
+  notes?: string;
+  createdAt: string;
+}
+
+// =============================================================================
+// TRANSFERÊNCIAS
+// =============================================================================
+
+export interface Transfer {
+  id: string;
+  playerId: string;
+  fromTeamId?: string;
+  toTeamId: string;
+  transferDate: string;
+  transferFee?: number;
+  contractYears?: number;
+  transferType: TransferType;
+  seasonId?: string;
+  agentName?: string;
+  agentFee?: number;
+  sellOnClause?: number;
+  addOns?: Record<string, unknown>;
+  notes?: string;
+  createdAt: string;
+}
+
+// =============================================================================
+// SISTEMA TÁTICO (LINEUPS)
+// =============================================================================
+
+export interface MatchLineup {
+  id: string;
+  matchId: string;
+  teamId: string;
+  formation: string;
+  coachId?: string;
+  tactics?: Record<string, unknown>;
+  isConfirmed: boolean;
+  createdAt: string;
+}
+
+export interface LineupPlayer {
+  id: string;
+  lineupId: string;
+  playerId: string;
+  positionX?: number;
+  positionY?: number;
+  shirtNumber?: number;
+  role?: string;
+  isStarter: boolean;
+  substitutedOut: boolean;
+  substitutedIn: boolean;
+}
+
+// =============================================================================
+// RANKING GLOBAL
+// =============================================================================
+
+export interface Ranking {
+  id: string;
+  sportId: SportType;
+  rankingType: RankingType;
+  entityId: string;
+  entityType: 'player' | 'team' | 'competition';
+  score: number;
+  position?: number;
+  metadata?: Record<string, unknown>;
+  calculatedAt: string;
 }
 
 // =============================================================================

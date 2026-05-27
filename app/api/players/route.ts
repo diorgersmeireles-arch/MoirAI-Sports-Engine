@@ -1,12 +1,29 @@
 import { NextResponse } from 'next/server';
-import { players, playerAttributesData, playerCardsData } from '@/data/seed';
+import {
+  allPlayers,
+  allTeams,
+  allMatches,
+  playerAttributesData,
+  playerCardsData,
+  playerStats,
+} from '@/data/seed';
+
+function getPlayerTeam(playerId: string): string | undefined {
+  for (const m of allMatches) {
+    const fStats = playerStats[m.id];
+    if (!fStats) continue;
+    const ps = fStats.find(p => p.playerId === playerId);
+    if (ps) return ps.teamId;
+  }
+  return undefined;
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
 
   if (id) {
-    const player = players.find(p => p.id === id);
+    const player = allPlayers.find(p => p.id === id);
     if (!player) return NextResponse.json({ error: 'Player not found' }, { status: 404 });
 
     const attrs = playerAttributesData.filter(a => a.playerId === id);
@@ -15,8 +32,13 @@ export async function GET(request: Request) {
       ? attrs.reduce((a, b) => new Date(a.measuredAt) > new Date(b.measuredAt) ? a : b)
       : null;
 
+    const teamId = getPlayerTeam(id);
+    const teamName = teamId ? allTeams.find(t => t.id === teamId)?.name : undefined;
+
     return NextResponse.json({
       ...player,
+      teamId,
+      teamName,
       attributes: latestAttrs,
       attributeHistory: attrs,
       cards,
@@ -24,7 +46,7 @@ export async function GET(request: Request) {
   }
 
   const sport = searchParams.get('sport');
-  let result = [...players];
+  let result = [...allPlayers];
   if (sport) result = result.filter(p => p.sportId === sport);
 
   const query = searchParams.get('q')?.toLowerCase();

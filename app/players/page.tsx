@@ -11,14 +11,22 @@ interface PlayerCard {
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState<PlayerCard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [sport, setSport] = useState('');
 
   useEffect(() => {
+    setLoading(true);
+    setError('');
     const params = new URLSearchParams();
     if (sport) params.set('sport', sport);
     if (search) params.set('q', search);
-    fetch(`/api/players?${params.toString()}`).then(r => r.json()).then(setPlayers);
+    fetch(`/api/players?${params.toString()}`)
+      .then(r => { if (!r.ok) throw new Error('Erro ao carregar'); return r.json(); })
+      .then(setPlayers)
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
   }, [sport, search]);
 
   return (
@@ -47,6 +55,19 @@ export default function PlayersPage() {
         </div>
       </div>
 
+      {error && <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-400">{error}</div>}
+
+      {loading ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 animate-pulse">
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="bg-sport-surface rounded-lg border border-sport-border p-4 h-40" />
+          ))}
+        </div>
+      ) : players.length === 0 ? (
+        <div className="bg-sport-surface rounded-lg border border-sport-border p-8 text-center text-sport-dim">
+          Nenhum atleta encontrado
+        </div>
+      ) : (
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         {players.map(p => (
           <Link
@@ -79,6 +100,7 @@ export default function PlayersPage() {
           </Link>
         ))}
       </div>
+      )}
     </div>
   );
 }

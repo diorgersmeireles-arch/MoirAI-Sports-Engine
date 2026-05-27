@@ -13,10 +13,16 @@ interface MatchCard {
 
 export default function MatchesPage() {
   const [matches, setMatches] = useState<MatchCard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [filter, setFilter] = useState<string>('all');
 
   useEffect(() => {
-    fetch('/api/matches').then(r => r.json()).then(setMatches);
+    fetch('/api/matches')
+      .then(r => { if (!r.ok) throw new Error('Erro ao carregar'); return r.json(); })
+      .then(setMatches)
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
   }, []);
 
   const filtered = filter === 'all' ? matches : matches.filter(m => m.status === filter);
@@ -42,6 +48,19 @@ export default function MatchesPage() {
         </div>
       </div>
 
+      {error && <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-400">{error}</div>}
+
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 animate-pulse">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="bg-sport-surface rounded-lg border border-sport-border p-4 h-28" />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="bg-sport-surface rounded-lg border border-sport-border p-8 text-center text-sport-dim">
+          Nenhuma partida encontrada
+        </div>
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {filtered.map(m => (
           <Link
@@ -69,6 +88,7 @@ export default function MatchesPage() {
           </Link>
         ))}
       </div>
+      )}
     </div>
   );
 }

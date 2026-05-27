@@ -19,12 +19,18 @@ export default function CompetitionsPage() {
   const [selectedComp, setSelectedComp] = useState('c1');
   const [selectedSeason, setSelectedSeason] = useState('s2024');
   const [standings, setStandings] = useState<StandingEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch('/api/competitions').then(r => r.json()).then(setCompetitions);
+    fetch('/api/competitions')
+      .then(r => { if (!r.ok) throw new Error('Erro ao carregar'); return r.json(); })
+      .then(setCompetitions)
+      .catch(e => setError(e.message));
   }, []);
 
   useEffect(() => {
+    setLoading(true);
     fetch('/api/competitions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -32,7 +38,8 @@ export default function CompetitionsPage() {
     }).then(r => {
       if (!r.ok) return [];
       return r.json();
-    }).then(setStandings);
+    }).then(d => { setStandings(d); setLoading(false); })
+      .catch(e => { setError(e.message); setLoading(false); });
   }, [selectedComp, selectedSeason]);
 
   const currentComp = competitions.find(c => c.id === selectedComp);
@@ -63,6 +70,13 @@ export default function CompetitionsPage() {
         </div>
       </div>
 
+      {error && <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-400">{error}</div>}
+
+      {loading ? (
+        <div className="bg-sport-surface rounded-lg border border-sport-border overflow-hidden animate-pulse p-8">
+          <div className="h-64 bg-sport-bg/50 rounded" />
+        </div>
+      ) : (
       <div className="bg-sport-surface rounded-lg border border-sport-border overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -115,6 +129,7 @@ export default function CompetitionsPage() {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }

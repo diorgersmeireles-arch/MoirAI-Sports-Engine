@@ -5,7 +5,7 @@
 **Nome**: MoirAI Sports Engine
 **Stack**: Next.js 14 + React 18 + TypeScript 5.4 + decimal.js
 **Autor**: MADev
-**Última Atualização**: 2026-05-26
+**Última Atualização**: 2026-05-27
 
 ---
 
@@ -15,9 +15,11 @@
 moirai-sports-engine/
 ├── app/
 │   ├── layout.tsx              # Layout root com NavBar
-│   ├── nav.tsx                 # Barra de navegação (Dashboard, Partidas, Atletas, Scanner, Competições)
+│   ├── nav.tsx                 # Barra de navegação (Dashboard, Partidas, Atletas, Comparar, Scanner, Competições)
 │   ├── globals.css             # Tailwind v3 + tema dark custom
 │   ├── page.tsx                # Dashboard: stats, live matches, standings mini, scanner preview
+│   ├── compare/
+│   │   └── page.tsx            # Comparador de atletas: radar sobreposto + tabela diferenças
 │   ├── matches/
 │   │   ├── page.tsx            # Lista de partidas com filtros (all/scheduled/live/finished)
 │   │   └── [id]/page.tsx       # Detalhe da partida + LiveMatchTracker (live), stats grid, player stats
@@ -37,9 +39,9 @@ moirai-sports-engine/
 ├── components/
 │   └── LiveMatchTracker.tsx    # Componente React de simulação ao vivo (742 linhas)
 ├── data/
-│   └── seed.ts                 # Dados mockados: 5 comps, 12 times, 10 jogadores, 10 partidas, + stats, atributos, cartões
+│   └── seed.ts                 # Dados mockados: 5 comps, 20 times, 18 jogadores, 13 partidas, + stats, atributos, cartões + multi-sport (vôlei, basquete, baseball)
 ├── database/
-│   ├── schema.sql              # Schema PostgreSQL completo (4 esportes)
+│   ├── schema.sql              # Schema PostgreSQL completo (4 esportes, staff, lesões, transferências, tático, rankings, MV, partitioning)
 │   └── migration_athletes.sql  # Perfil individual: atributos, cartões, teia
 ├── public/                     # Ativos estáticos (vazio)
 ├── services/
@@ -712,6 +714,29 @@ graph LR
 ---
 
 ## 📝 CHANGELOG
+
+### 2026-05-27 (v3)
+
+- **Scanner API** (`/api/scanner`): agora usa `liveScanner()` real do `scannerService.ts` com threshold configurável, em vez de `Math.random()`
+- **Multi-sport seed data**: adicionados times, jogadores e partidas para vôlei (4 times, 3 jogadores, 2 partidas), basquete (4 times, 3 jogadores, 1 partida) e baseball (3 times, 2 jogadores, 1 partida)
+- **Comparador de Atletas** (`/compare`): página nova com selects para dois jogadores, gráfico radar sobreposto (verde/vermelho) e tabela de diferenças
+- **Navegação**: link "Comparar" adicionado à navbar
+- **Loading/Error states**: páginas de Partidas, Atletas e Competições agora têm `loading`, `error` e estados vazios com skeleton animado e mensagens em português
+- **Build**: 14 rotas compilando sem erros (7 pages + 5 API + _not-found)
+
+### 2026-05-27 (v4)
+
+- **ENUMs adicionados**: `transfer_type`, `injury_severity`, `ranking_type`, `staff_role`
+- **Staff/Comissão Técnica**: tabelas `staff` + `team_staff` (técnicos, auxiliares, preparadores, scouts, analistas, fisioterapeutas)
+- **Lesões**: tabela `player_injuries` com tipo, gravidade, parte do corpo, data de retorno, jogos perdidos
+- **Transferências**: tabela `transfers` com valor, tipo (permanente/empréstimo/livre), cláusula de mais-valia, add-ons
+- **Sistema Tático**: tabelas `match_lineups` (formação, técnico, táticas) + `lineup_players` (posição X/Y, capitão, titular)
+- **Ranking Global**: tabela `rankings` flexível (jogador/time/competição por tipo de ranking com score)
+- **Materialized Views**: `mv_top_scorers` (artilheiros), `mv_standings_enhanced` (aproveitamento %), `mv_team_recent_form` (últimos 5 jogos em JSON)
+- **Índices novos**: `idx_matches_live` (partial), `idx_team_players_team_season`, `idx_player_attributes_player`, `idx_football_stats_player`
+- **Partitioning**: nota/documentação para particionar tabelas de alta volumetria por RANGE (created_at)
+- **Seed data expandido**: staff, team_staff, injuries, transfers, lineups, lineup_players, rankings
+- **TypeScript**: interfaces novas `Staff`, `TeamStaff`, `PlayerInjury`, `Transfer`, `MatchLineup`, `LineupPlayer`, `Ranking`
 
 ### 2026-05-26 (v2)
 

@@ -7,6 +7,7 @@ const navItems = [
   { href: '/', label: 'Dashboard' },
   { href: '/matches', label: 'Partidas' },
   { href: '/players', label: 'Atletas' },
+  { href: '/compare', label: 'Comparar' },
   { href: '/scanner', label: 'Scanner' },
   { href: '/competitions', label: 'Competições' },
 ];

@@ -1,7 +1,8 @@
 import type {
   Competition, Season, Team, Player, Match, Standing,
   FootballMatchStats, FootballPlayerStats, PlayerAttributes,
-  PlayerCard,
+  PlayerCard, Staff, TeamStaff, PlayerInjury, Transfer,
+  MatchLineup, LineupPlayer, Ranking,
 } from '../types/database';
 
 export const competitions: Competition[] = [
@@ -173,16 +174,142 @@ export const playerCardsData: PlayerCard[] = [
   { id: 'pc3', playerId: 'p5', matchId: 'm3', teamId: 't5', cardType: 'yellow', severity: 'technical', minute: 72, period: 'second_half', reason: 'Simulação', suspensionMatches: 0, createdAt: '2025-04-14T17:12:00Z' },
 ];
 
+// =============================================================================
+// VOLLEYBALL
+// =============================================================================
+export const volleyballTeams: Team[] = [
+  { id: 'vt1', sportId: 'volleyball', name: 'Sada Cruzeiro', shortName: 'CRU', country: 'Brasil', city: 'Contagem' },
+  { id: 'vt2', sportId: 'volleyball', name: 'Itambé Minas', shortName: 'MIN', country: 'Brasil', city: 'Belo Horizonte' },
+  { id: 'vt3', sportId: 'volleyball', name: 'Vôlei Renata', shortName: 'REN', country: 'Brasil', city: 'Campinas' },
+  { id: 'vt4', sportId: 'volleyball', name: 'SESI-SP', shortName: 'SES', country: 'Brasil', city: 'São Paulo' },
+];
+
+export const volleyballPlayers: Player[] = [
+  { id: 'vp1', sportId: 'volleyball', fullName: 'Wallace', shortName: 'Wallace', nationality: 'Brasil', heightCm: 198, weightKg: 97, retired: false, metadata: { position: 'opposite', reachCm: 345, shirtNumber: 8 } },
+  { id: 'vp2', sportId: 'volleyball', fullName: 'Bruninho', shortName: 'Bruninho', nationality: 'Brasil', heightCm: 190, weightKg: 78, retired: false, metadata: { position: 'setter', reachCm: 330, shirtNumber: 1 } },
+  { id: 'vp3', sportId: 'volleyball', fullName: 'Lucarelli', shortName: 'Lucarelli', nationality: 'Brasil', heightCm: 195, weightKg: 87, retired: false, metadata: { position: 'outside_hitter', reachCm: 340, shirtNumber: 10 } },
+];
+
+export const volleyballMatches: Match[] = [
+  { id: 'vm1', sportId: 'volleyball', competitionId: 'c1', seasonId: 's2025', homeTeamId: 'vt1', awayTeamId: 'vt2', status: 'finished', scheduledAt: '2025-04-15T19:00:00Z', startedAt: '2025-04-15T19:00:00Z', finishedAt: '2025-04-15T21:00:00Z', homeScore: 3, awayScore: 1, createdAt: '2025-04-01T00:00:00Z', updatedAt: '2025-04-15T21:00:00Z' },
+  { id: 'vm2', sportId: 'volleyball', competitionId: 'c1', seasonId: 's2025', homeTeamId: 'vt3', awayTeamId: 'vt4', status: 'finished', scheduledAt: '2025-04-16T18:30:00Z', startedAt: '2025-04-16T18:30:00Z', finishedAt: '2025-04-16T20:30:00Z', homeScore: 3, awayScore: 2, round: '2', createdAt: '2025-04-01T00:00:00Z', updatedAt: '2025-04-16T20:30:00Z' },
+];
+
+// =============================================================================
+// BASKETBALL
+// =============================================================================
+export const basketballTeams: Team[] = [
+  { id: 'bt1', sportId: 'basketball', name: 'Flamengo', shortName: 'FLA', country: 'Brasil', city: 'Rio de Janeiro' },
+  { id: 'bt2', sportId: 'basketball', name: 'Franca', shortName: 'FRA', country: 'Brasil', city: 'Franca' },
+  { id: 'bt3', sportId: 'basketball', name: 'São Paulo', shortName: 'SAO', country: 'Brasil', city: 'São Paulo' },
+  { id: 'bt4', sportId: 'basketball', name: 'Pinheiros', shortName: 'PIN', country: 'Brasil', city: 'São Paulo' },
+];
+
+export const basketballPlayers: Player[] = [
+  { id: 'bp1', sportId: 'basketball', fullName: 'Marquinhos', shortName: 'Marquinhos', nationality: 'Brasil', heightCm: 207, weightKg: 105, retired: false, metadata: { position: 'power_forward', jerseyNumber: 11 } },
+  { id: 'bp2', sportId: 'basketball', fullName: 'Alexey', shortName: 'Alexey', nationality: 'Brasil', heightCm: 192, weightKg: 88, retired: false, metadata: { position: 'shooting_guard', jerseyNumber: 5 } },
+  { id: 'bp3', sportId: 'basketball', fullName: 'Lucas Dias', shortName: 'Lucas D.', nationality: 'Brasil', heightCm: 205, weightKg: 102, retired: false, metadata: { position: 'center', jerseyNumber: 15 } },
+];
+
+export const basketballMatches: Match[] = [
+  { id: 'bm1', sportId: 'basketball', competitionId: 'c5', seasonId: 's2025', homeTeamId: 'bt1', awayTeamId: 'bt2', status: 'finished', scheduledAt: '2025-04-14T20:00:00Z', startedAt: '2025-04-14T20:00:00Z', finishedAt: '2025-04-14T21:45:00Z', homeScore: 88, awayScore: 76, createdAt: '2025-04-01T00:00:00Z', updatedAt: '2025-04-14T21:45:00Z' },
+];
+
+// =============================================================================
+// BASEBALL
+// =============================================================================
+export const baseballTeams: Team[] = [
+  { id: 'bbt1', sportId: 'baseball', name: 'Yankees', shortName: 'NYY', country: 'EUA', city: 'New York' },
+  { id: 'bbt2', sportId: 'baseball', name: 'Red Sox', shortName: 'BOS', country: 'EUA', city: 'Boston' },
+  { id: 'bbt3', sportId: 'baseball', name: 'Dodgers', shortName: 'LAD', country: 'EUA', city: 'Los Angeles' },
+];
+
+export const baseballPlayers: Player[] = [
+  { id: 'bbp1', sportId: 'baseball', fullName: 'Aaron Judge', shortName: 'Judge', nationality: 'EUA', heightCm: 201, weightKg: 128, retired: false, metadata: { primaryPosition: 'right_field', battingHand: 'right', throwingHand: 'right' } },
+  { id: 'bbp2', sportId: 'baseball', fullName: 'Shohei Ohtani', shortName: 'Ohtani', nationality: 'Japão', heightCm: 193, weightKg: 95, retired: false, metadata: { primaryPosition: 'designated_hitter', battingHand: 'left', throwingHand: 'right' } },
+];
+
+export const baseballMatches: Match[] = [
+  { id: 'bbm1', sportId: 'baseball', competitionId: 'c1', seasonId: 's2025', homeTeamId: 'bbt1', awayTeamId: 'bbt2', status: 'finished', scheduledAt: '2025-04-12T14:00:00Z', startedAt: '2025-04-12T14:00:00Z', finishedAt: '2025-04-12T16:45:00Z', homeScore: 6, awayScore: 3, createdAt: '2025-04-01T00:00:00Z', updatedAt: '2025-04-12T16:45:00Z' },
+];
+
+// =============================================================================
+// STAFF
+// =============================================================================
+export const staffData: Staff[] = [
+  { id: 'sf1', fullName: 'Filipe Luís', nationality: 'Brasil', birthDate: '1985-08-09', role: 'head_coach', specialty: 'Técnico principal', createdAt: '2025-01-01T00:00:00Z' },
+  { id: 'sf2', fullName: 'Abel Ferreira', nationality: 'Portugal', birthDate: '1978-12-22', role: 'head_coach', specialty: 'Técnico principal', createdAt: '2024-01-01T00:00:00Z' },
+  { id: 'sf3', fullName: 'Thiago Silva', nationality: 'Brasil', role: 'assistant_coach', specialty: 'Auxiliar técnico', createdAt: '2025-01-01T00:00:00Z' },
+  { id: 'sf4', fullName: 'Dr. José Carlos', nationality: 'Brasil', role: 'physiotherapist', specialty: 'Fisioterapia esportiva', createdAt: '2024-06-01T00:00:00Z' },
+  { id: 'sf5', fullName: 'Carlos Alberto', nationality: 'Brasil', role: 'fitness_coach', specialty: 'Preparação física', createdAt: '2024-01-01T00:00:00Z' },
+];
+
+export const teamStaffData: TeamStaff[] = [
+  { id: 'tsf1', teamId: 't1', seasonId: 's2025', staffId: 'sf1', startDate: '2025-01-01', isActive: true },
+  { id: 'tsf2', teamId: 't2', seasonId: 's2025', staffId: 'sf2', startDate: '2024-01-01', isActive: true },
+  { id: 'tsf3', teamId: 't1', seasonId: 's2025', staffId: 'sf3', startDate: '2025-01-01', isActive: true },
+  { id: 'tsf4', teamId: 't1', seasonId: 's2025', staffId: 'sf4', startDate: '2024-06-01', isActive: true },
+  { id: 'tsf5', teamId: 't3', seasonId: 's2025', staffId: 'sf5', startDate: '2024-01-01', isActive: true },
+];
+
+// =============================================================================
+// LESÕES
+// =============================================================================
+export const injuriesData: PlayerInjury[] = [
+  { id: 'inj1', playerId: 'p3', injuryType: 'Estiramento muscular na coxa', severity: 'moderate', bodyPart: 'coxa direita', startDate: '2025-03-15', expectedReturn: '2025-04-20', gamesMissed: 6, recurrence: false, notes: 'Lesão durante treino', createdAt: '2025-03-15T00:00:00Z' },
+  { id: 'inj2', playerId: 'p5', injuryType: 'Entorse de tornozelo', severity: 'minor', bodyPart: 'tornozelo esquerdo', startDate: '2025-04-01', expectedReturn: '2025-04-15', actualReturn: '2025-04-12', gamesMissed: 2, recurrence: true, notes: 'Lesão recorrente', createdAt: '2025-04-01T00:00:00Z' },
+];
+
+// =============================================================================
+// TRANSFERÊNCIAS
+// =============================================================================
+export const transfersData: Transfer[] = [
+  { id: 'tr1', playerId: 'p1', fromTeamId: 't7', toTeamId: 't1', transferDate: '2020-01-28', transferFee: 54000000, contractYears: 5, transferType: 'permanent', agentName: 'Wagner Ribeiro', createdAt: '2020-01-28T00:00:00Z' },
+  { id: 'tr2', playerId: 'p4', fromTeamId: 't4', toTeamId: 't2', transferDate: '2021-07-01', transferFee: 32000000, contractYears: 4, transferType: 'permanent', createdAt: '2021-07-01T00:00:00Z' },
+  { id: 'tr3', playerId: 'p9', toTeamId: 't5', transferDate: '2023-01-01', transferFee: 0, contractYears: 2, transferType: 'free_transfer', notes: 'Chegou como agente livre do Nacional/UY', createdAt: '2023-01-01T00:00:00Z' },
+];
+
+// =============================================================================
+// LINEUPS (Tático)
+// =============================================================================
+export const lineupsData: MatchLineup[] = [
+  { id: 'ml1', matchId: 'm1', teamId: 't1', formation: '4-3-3', coachId: 'sf1', isConfirmed: true, createdAt: '2025-04-13T15:00:00Z' },
+  { id: 'ml2', matchId: 'm1', teamId: 't2', formation: '4-2-3-1', coachId: 'sf2', isConfirmed: true, createdAt: '2025-04-13T15:00:00Z' },
+];
+
+export const lineupPlayersData: LineupPlayer[] = [
+  { id: 'lp1', lineupId: 'ml1', playerId: 'p1', positionX: 80, positionY: 50, shirtNumber: 10, role: 'vice_captain', isStarter: true, substitutedOut: false, substitutedIn: false },
+  { id: 'lp2', lineupId: 'ml1', playerId: 'p2', positionX: 50, positionY: 45, shirtNumber: 14, role: 'set_piece_taker', isStarter: true, substitutedOut: false, substitutedIn: false },
+  { id: 'lp3', lineupId: 'ml2', playerId: 'p4', positionX: 60, positionY: 40, shirtNumber: 23, isStarter: true, substitutedOut: false, substitutedIn: false },
+  { id: 'lp4', lineupId: 'ml2', playerId: 'p5', positionX: 85, positionY: 50, shirtNumber: 7, role: 'captain', isStarter: true, substitutedOut: false, substitutedIn: false },
+];
+
+// =============================================================================
+// RANKINGS
+// =============================================================================
+export const rankingsData: Ranking[] = [
+  { id: 'rk1', sportId: 'football', rankingType: 'top_scorer', entityId: 'p1', entityType: 'player', score: 92.0, position: 1, calculatedAt: '2025-04-15T00:00:00Z' },
+  { id: 'rk2', sportId: 'football', rankingType: 'top_scorer', entityId: 'p6', entityType: 'player', score: 88.5, position: 2, calculatedAt: '2025-04-15T00:00:00Z' },
+  { id: 'rk3', sportId: 'football', rankingType: 'club_world', entityId: 't2', entityType: 'team', score: 95.0, position: 1, metadata: { points: 80, season: '2024' }, calculatedAt: '2025-01-01T00:00:00Z' },
+  { id: 'rk4', sportId: 'football', rankingType: 'club_world', entityId: 't1', entityType: 'team', score: 92.0, position: 2, metadata: { points: 75, season: '2024' }, calculatedAt: '2025-01-01T00:00:00Z' },
+  { id: 'rk5', sportId: 'football', rankingType: 'player_potential', entityId: 'p3', entityType: 'player', score: 87.0, position: 1, calculatedAt: '2025-04-15T00:00:00Z' },
+];
+
+export const allTeams = [...teams, ...volleyballTeams, ...basketballTeams, ...baseballTeams];
+
 function getTeamName(teamId: string): string {
-  return teams.find(t => t.id === teamId)?.name ?? teamId;
+  return allTeams.find(t => t.id === teamId)?.name ?? teamId;
 }
 
 function getTeamShort(teamId: string): string {
-  return teams.find(t => t.id === teamId)?.shortName ?? teamId;
+  return allTeams.find(t => t.id === teamId)?.shortName ?? teamId;
 }
 
+export const allMatches = [...matches, ...volleyballMatches, ...basketballMatches, ...baseballMatches];
+export const allPlayers = [...players, ...volleyballPlayers, ...basketballPlayers, ...baseballPlayers];
+
 export function getMatchWithDetails(matchId: string) {
-  const match = matches.find(m => m.id === matchId);
+  const match = allMatches.find(m => m.id === matchId);
   if (!match) return null;
   return {
     ...match,
@@ -197,7 +324,7 @@ export function getMatchWithDetails(matchId: string) {
 }
 
 export function getAllMatches() {
-  return matches.map(m => ({
+  return allMatches.map(m => ({
     ...m,
     homeTeamName: getTeamName(m.homeTeamId),
     awayTeamName: getTeamName(m.awayTeamId),

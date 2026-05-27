@@ -20,6 +20,10 @@ CREATE TYPE baseball_event_type AS ENUM ('hit', 'home_run', 'strikeout', 'walk',
 CREATE TYPE foul_type AS ENUM ('personal', 'technical', 'flagrant', 'offensive');
 CREATE TYPE batting_hand AS ENUM ('left', 'right', 'switch');
 CREATE TYPE throwing_hand AS ENUM ('left', 'right');
+CREATE TYPE transfer_type AS ENUM ('permanent', 'loan', 'free_transfer', 'swap', 'youth_promotion');
+CREATE TYPE injury_severity AS ENUM ('minor', 'moderate', 'severe', 'career_threatening');
+CREATE TYPE ranking_type AS ENUM ('player_overall', 'team_form', 'top_scorer', 'top_assists', 'club_world', 'player_potential', 'club_ranking');
+CREATE TYPE staff_role AS ENUM ('head_coach', 'assistant_coach', 'fitness_coach', 'scout', 'analyst', 'physiotherapist', 'doctor', 'director_of_football', 'sporting_director');
 
 -- =============================================================================
 -- TABELAS DE DOMÍNIO (COMPARTILHADAS)
@@ -131,6 +135,147 @@ CREATE TABLE team_players (
 );
 
 -- =============================================================================
+-- STAFF / COMISSÃO TÉCNICA
+-- =============================================================================
+
+CREATE TABLE staff (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  full_name       VARCHAR(200) NOT NULL,
+  nationality     VARCHAR(100),
+  birth_date      DATE,
+  role            staff_role NOT NULL,
+  specialty       VARCHAR(100),                    -- Ex: "preparação física", "análise de mercado"
+  image_url       TEXT,
+  metadata        JSONB,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_staff_role ON staff(role);
+
+-- Contratos de staff com times por temporada
+CREATE TABLE team_staff (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  team_id         UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  season_id       UUID NOT NULL REFERENCES seasons(id) ON DELETE CASCADE,
+  staff_id        UUID NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+  start_date      DATE NOT NULL,
+  end_date        DATE,
+  is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+  UNIQUE (team_id, staff_id, season_id)
+);
+
+CREATE INDEX idx_team_staff_team ON team_staff(team_id, season_id);
+
+-- =============================================================================
+-- LESÕES DE ATLETAS
+-- =============================================================================
+
+CREATE TABLE player_injuries (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  player_id         UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  injury_type       VARCHAR(100) NOT NULL,         -- Ex: "ruptura LCA", "fratura tíbia", "estiramento muscular"
+  severity          injury_severity NOT NULL,
+  body_part         VARCHAR(50),                   -- Ex: "joelho", "coxa", "tornozelo"
+  start_date        DATE NOT NULL,
+  expected_return   DATE,
+  actual_return     DATE,
+  games_missed      SMALLINT DEFAULT 0,
+  recurrence        BOOLEAN DEFAULT FALSE,         -- Lesão recorrente?
+  notes             TEXT,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_player_injuries_player ON player_injuries(player_id);
+CREATE INDEX idx_player_injuries_dates ON player_injuries(start_date, expected_return);
+CREATE INDEX idx_player_injuries_severity ON player_injuries(severity);
+
+-- =============================================================================
+-- TRANSFERÊNCIAS / MERCADO
+-- =============================================================================
+
+CREATE TABLE transfers (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  player_id         UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  from_team_id      UUID REFERENCES teams(id),     -- NULL = agente livre / base
+  to_team_id        UUID NOT NULL REFERENCES teams(id),
+  transfer_date     DATE NOT NULL,
+  transfer_fee      DECIMAL(15,2),                 -- Valor em EUR/USD
+  contract_years    SMALLINT,
+  transfer_type     transfer_type NOT NULL DEFAULT 'permanent',
+  season_id         UUID REFERENCES seasons(id),
+  -- Metadados
+  agent_name        VARCHAR(200),
+  agent_fee         DECIMAL(15,2),
+  sell_on_clause    DECIMAL(5,2),                  -- % de mais-valia futura
+  add_ons           JSONB,                         -- Bônus por performance
+  notes             TEXT,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_transfers_player ON transfers(player_id);
+CREATE INDEX idx_transfers_from ON transfers(from_team_id);
+CREATE INDEX idx_transfers_to ON transfers(to_team_id);
+CREATE INDEX idx_transfers_date ON transfers(transfer_date);
+CREATE INDEX idx_transfers_fee ON transfers(transfer_fee DESC);
+
+-- =============================================================================
+-- SISTEMA TÁTICO (ESCALAÇÕES / LINEUPS)
+-- =============================================================================
+
+CREATE TABLE match_lineups (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  match_id          UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+  team_id           UUID NOT NULL REFERENCES teams(id),
+  formation         VARCHAR(20) NOT NULL,           -- Ex: "4-3-3", "4-4-2", "3-5-2"
+  coach_id          UUID REFERENCES staff(id),      -- Técnico responsável
+  tactics           JSONB,                          -- Instruções táticas, estilo de jogo
+  is_confirmed      BOOLEAN DEFAULT FALSE,          -- Escalação oficial confirmada
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (match_id, team_id)
+);
+
+CREATE INDEX idx_match_lineups_match ON match_lineups(match_id);
+
+CREATE TABLE lineup_players (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  lineup_id         UUID NOT NULL REFERENCES match_lineups(id) ON DELETE CASCADE,
+  player_id         UUID NOT NULL REFERENCES players(id),
+  position_x        DECIMAL(5,2),                  -- 0-100 (% do campo horizontal)
+  position_y        DECIMAL(5,2),                  -- 0-100 (% do campo vertical)
+  shirt_number      SMALLINT,
+  role              VARCHAR(50),                   -- "captain", "vice_captain", "set_piece_taker"
+  is_starter        BOOLEAN NOT NULL DEFAULT TRUE,
+  substituted_out   BOOLEAN DEFAULT FALSE,
+  substituted_in    BOOLEAN DEFAULT FALSE,
+  UNIQUE (lineup_id, player_id)
+);
+
+CREATE INDEX idx_lineup_players_lineup ON lineup_players(lineup_id);
+CREATE INDEX idx_lineup_players_player ON lineup_players(player_id);
+
+-- =============================================================================
+-- RANKING GLOBAL (Jogadores, Clubes, Ligas)
+-- =============================================================================
+
+CREATE TABLE rankings (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  sport_id          sport_type NOT NULL,
+  ranking_type      ranking_type NOT NULL,
+  entity_id         UUID NOT NULL,                  -- Pode ser player_id, team_id, competition_id
+  entity_type       VARCHAR(30) NOT NULL CHECK (entity_type IN ('player', 'team', 'competition')),
+  score             DECIMAL(10,2) NOT NULL,
+  position          SMALLINT,                       -- Posição no ranking (opcional, calculado)
+  metadata          JSONB,                          -- Dados extras para contexto
+  calculated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (sport_id, ranking_type, entity_id, calculated_at)
+);
+
+CREATE INDEX idx_rankings_sport_type ON rankings(sport_id, ranking_type);
+CREATE INDEX idx_rankings_score ON rankings(score DESC);
+CREATE INDEX idx_rankings_entity ON rankings(entity_id);
+CREATE INDEX idx_rankings_calculated ON rankings(calculated_at);
+
+-- =============================================================================
 -- PARTIDAS
 -- =============================================================================
 
@@ -167,6 +312,10 @@ CREATE INDEX idx_matches_status ON matches(status);
 CREATE INDEX idx_matches_competition ON matches(competition_id, season_id);
 CREATE INDEX idx_matches_team ON matches(home_team_id, away_team_id);
 CREATE INDEX idx_matches_scheduled ON matches(scheduled_at);
+CREATE INDEX idx_matches_live ON matches(status, scheduled_at) WHERE status = 'live';
+CREATE INDEX idx_team_players_team_season ON team_players(team_id, season_id);
+CREATE INDEX idx_player_attributes_player ON player_attributes(player_id);
+CREATE INDEX idx_football_stats_player ON football_player_stats(player_id);
 
 -- =============================================================================
 -- TABELAS ESPECÍFICAS DE FUTEBOL
@@ -733,6 +882,140 @@ JOIN teams t ON t.id = st.team_id
 JOIN competitions c ON c.id = st.competition_id
 JOIN seasons s ON s.id = st.season_id
 ORDER BY st.position;
+
+-- =============================================================================
+-- MATERIALIZED VIEWS (Analytics)
+-- =============================================================================
+
+-- Artilheiros por competição/temporada
+CREATE MATERIALIZED VIEW mv_top_scorers AS
+SELECT
+  p.id AS player_id,
+  p.full_name,
+  t.name AS team_name,
+  m.competition_id,
+  m.season_id,
+  COUNT(DISTINCT m.id) AS matches_played,
+  SUM(fps.goals) AS total_goals,
+  SUM(fps.assists) AS total_assists,
+  SUM(fps.minutes_played) AS total_minutes,
+  ROUND(SUM(fps.goals)::DECIMAL / NULLIF(COUNT(DISTINCT m.id), 0), 2) AS goals_per_match
+FROM players p
+JOIN football_player_stats fps ON fps.player_id = p.id
+JOIN matches m ON m.id = fps.match_id
+JOIN teams t ON t.id = fps.team_id
+GROUP BY p.id, p.full_name, t.name, m.competition_id, m.season_id
+ORDER BY total_goals DESC;
+
+CREATE UNIQUE INDEX idx_mv_top_scorers ON mv_top_scorers(player_id, competition_id, season_id);
+CREATE INDEX idx_mv_top_scorers_goals ON mv_top_scorers(total_goals DESC);
+
+-- Classificação com médias e aproveitamento
+CREATE MATERIALIZED VIEW mv_standings_enhanced AS
+SELECT
+  st.id AS standing_id,
+  st.competition_id,
+  st.season_id,
+  st.team_id,
+  t.name AS team_name,
+  t.short_name AS team_short,
+  st.position,
+  st.played,
+  st.wins,
+  st.draws,
+  st.losses,
+  st.points,
+  st.goals_for,
+  st.goals_against,
+  st.goal_difference,
+  CASE WHEN st.played > 0
+    THEN ROUND((st.points::DECIMAL / (st.played * 3)) * 100, 1)
+    ELSE 0
+  END AS points_pct,
+  CASE WHEN st.played > 0
+    THEN ROUND(st.goals_for::DECIMAL / st.played, 2)
+    ELSE 0
+  END AS goals_per_game,
+  CASE WHEN st.played > 0
+    THEN ROUND(st.goals_against::DECIMAL / st.played, 2)
+    ELSE 0
+  END AS conceded_per_game,
+  c.name AS competition_name,
+  s.name AS season_name
+FROM standings st
+JOIN teams t ON t.id = st.team_id
+JOIN competitions c ON c.id = st.competition_id
+JOIN seasons s ON s.id = st.season_id
+ORDER BY st.position;
+
+CREATE UNIQUE INDEX idx_mv_standings_enhanced ON mv_standings_enhanced(standing_id);
+CREATE INDEX idx_mv_standings_comp ON mv_standings_enhanced(competition_id, season_id);
+
+-- Forma recente dos times (últimos 5 jogos)
+CREATE MATERIALIZED VIEW mv_team_recent_form AS
+SELECT
+  team_id,
+  competition_id,
+  season_id,
+  COUNT(*) AS total_matches,
+  SUM(CASE WHEN result = 'win' THEN 1 ELSE 0 END) AS wins,
+  SUM(CASE WHEN result = 'draw' THEN 1 ELSE 0 END) AS draws,
+  SUM(CASE WHEN result = 'loss' THEN 1 ELSE 0 END) AS losses,
+  jsonb_agg(result ORDER BY match_date DESC) AS recent_form
+FROM (
+  SELECT
+    m.home_team_id AS team_id,
+    m.competition_id,
+    m.season_id,
+    m.scheduled_at AS match_date,
+    CASE
+      WHEN m.home_score > m.away_score THEN 'win'
+      WHEN m.home_score = m.away_score THEN 'draw'
+      ELSE 'loss'
+    END AS result
+  FROM matches m
+  WHERE m.status = 'finished'
+  UNION ALL
+  SELECT
+    m.away_team_id AS team_id,
+    m.competition_id,
+    m.season_id,
+    m.scheduled_at,
+    CASE
+      WHEN m.away_score > m.home_score THEN 'win'
+      WHEN m.away_score = m.home_score THEN 'draw'
+      ELSE 'loss'
+    END AS result
+  FROM matches m
+  WHERE m.status = 'finished'
+) form_data
+GROUP BY team_id, competition_id, season_id;
+
+CREATE UNIQUE INDEX idx_mv_team_recent_form ON mv_team_recent_form(team_id, competition_id, season_id);
+
+-- =============================================================================
+-- PARTITIONING (NOTA)
+-- Tabelas de alta volumetria devem ser particionadas em produção.
+-- Descomente e ajuste ao criar as tabelas em um banco real:
+--
+-- CREATE TABLE football_events (
+--   ...
+-- ) PARTITION BY RANGE (created_at);
+--
+-- CREATE TABLE football_events_2025_q1 PARTITION OF football_events
+--   FOR VALUES FROM ('2025-01-01') TO ('2025-04-01');
+--
+-- Tabelas recomendadas para particionamento:
+-- - football_events (por mês/trimestre)
+-- - basketball_events
+-- - volleyball_events
+-- - baseball_events
+-- - football_player_stats
+-- - basketball_player_stats
+-- - volleyball_player_stats
+-- - baseball_batter_stats
+-- - baseball_pitcher_stats
+-- =============================================================================
 
 -- =============================================================================
 -- SEED DATA (Esportes base)
