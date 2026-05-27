@@ -39,6 +39,27 @@
 | `/api/v1/ai/scouting-report` | POST | pgvector + Graph edges | JWT + X-Tenant-ID |
 | `/api/live/match/{id}` | GET | Seed / Redis snapshots | X-Tenant-ID |
 
+## 🔐 RBAC Enterprise (MOI-ADM)
+
+### System Roles
+
+| Role | Scope | Description |
+|------|-------|-------------|
+| `super_admin` | Global Infrastructure & Cross-Tenant | Full system access, infra config, tenant lifecycle |
+| `global_manager` | Global Operational Monitoring | Platform administration, cross-tenant read |
+| `tenant_admin` | Per-Tenant | Full control within a tenant boundary |
+| `competition_manager` | Per-Competition | Competition config, match scheduling, standings |
+| `scout` | Per-Tenant | Event creation/revision, player evaluation |
+| `analyst` | Per-Tenant | Read + analytics dashboards, ML inference |
+| `viewer` | Per-Tenant | Read-only access to assigned resources |
+
+### Bootstrap Assignments
+
+| User | Role | Scope |
+|------|------|-------|
+| Washington Meireles | `super_admin` | Global Infrastructure & Cross-Tenant Access |
+| Diorgers Meireles | `global_manager` | Global Operational Monitoring & Platform Administration |
+
 ## 📡 Event Lifecycle Contract
 
 ```
@@ -92,9 +113,9 @@ moirai-sports-engine/
 ├── components/
 │   └── LiveMatchTracker.tsx    # Componente React de simulação ao vivo (693 linhas)
 ├── data/
-│   └── seed.ts                 # Dados mockados: 5 comps, 23 times, 18 jogadores, 14 partidas, multi-sport stats, 7 atributos, 3 cartões + staff, injuries, transfers, lineups, rankings, odds, multi-tenant, embeddings, knowledge graph, ml features
+│   └── seed.ts                 # Dados mockados: 5 comps, 23 times, 18 jogadores, 14 partidas, multi-sport stats, 7 atributos, 3 cartões + staff, injuries, transfers, lineups, rankings, odds, multi-tenant, embeddings, knowledge graph, ml features, audit logs
 ├── database/
-│   ├── schema.sql              # Schema PostgreSQL: 50 tabelas, 18 ENUMs, Knowledge Graph, ML Feature Store, Event Versioning, multi-tenant, embeddings, MV
+│   ├── schema.sql              # Schema PostgreSQL: 51 tabelas, 19 ENUMs, Knowledge Graph, ML Feature Store, Event Versioning, Audit & Governance, multi-tenant, embeddings, MV
 │   └── migration_athletes.sql  # Perfil individual: atributos, cartões, teia
 ├── public/                     # Ativos estáticos (vazio)
 ├── services/
@@ -102,7 +123,7 @@ moirai-sports-engine/
 │   └── scannerService.ts       # Scanner ao vivo e alertas (211 linhas)
 ├── types/
 │   ├── sports.ts               # Contratos de dados do domínio (279 linhas)
-│   └── database.ts             # Tipagens do banco de dados (1202 linhas, 85 exports)
+│   └── database.ts             # Tipagens do banco de dados (1216 linhas, 87 exports)
 ├── utils/
 │   ├── mathEngine.ts           # Funções estatísticas puras (254 linhas)
 │   └── financeEngine.ts        # EV e Critério de Kelly (133 linhas)
@@ -546,6 +567,7 @@ erDiagram
     tenants ||--o{ tenant_permissions : "permissoes"
     tenants ||--o{ entity_tenants : "mapeia"
     tenants ||--o{ graph_nodes : "vertices"
+    tenants ||--o{ audit_logs : "audita"
     graph_nodes ||--o{ graph_edges : "origem"
     graph_nodes ||--o{ graph_edges : "destino"
     matches ||--o{ match_state_snapshots : "snapshots"
@@ -617,6 +639,11 @@ O banco foi projetado em 3 camadas: **Domínio Compartilhado**, **Partidas** e *
 | Tabela       | Descrição                                       |
 | ------------ | ----------------------------------------------- |
 | `standings`  | Classificação flexível (qualquer esporte)        |
+
+**Governança & Auditoria (MOI-ADM):**
+| Tabela       | Descrição                                       |
+| ------------ | ----------------------------------------------- |
+| `audit_logs` | Tamper-proof audit trail: actor_user_id, tenant_id, action, entity_type/entity_id, ip_address (INET), user_agent, metadata JSONB (diff state before/after), created_at — 4 índices forenses |
 
 ### Views
 
@@ -752,14 +779,16 @@ graph LR
 | `EntityType` | `player`, `team`, `match`, `competition`, `venue`, `scout_report`, `article` |
 | `EdgePredicate` | `played_with`, `coached_by`, `rival_of`, `injured_in`, `transferred_to`, `agent_of`, `tactical_cluster` |
 | `FeatureGroup` | `tactical`, `physical`, `psychological`, `performance`, `scouting` |
+| `SystemRole` | `super_admin`, `global_manager`, `tenant_admin`, `competition_manager`, `scout`, `analyst`, `viewer` |
 | `CardSeverity` | `soft`, `hard`, `violent`, `technical`, `professional` |
 
-### 63 Interfaces
+### 65 Interfaces (23 domínio + 11 analytics + 4 radar + 2 perfil + 13 SaaS/gov + 4 embedding/graph + 4 feature/event + 2 ML + 1 audit + 1 governance update)
 
 | Categoria | Interfaces |
 |---|---|
 | **Domínio** | `Sport`, `Competition`, `Season`, `Venue`, `Team`, `CompetitionTeam`, `Player`, `TeamPlayer`, `Staff`, `TeamStaff`, `PlayerMetadata`, `PlayerInjury`, `Transfer`, `Match`, `Standing` |
 | **Multi-Tenant** | `Organization`, `Tenant`, `TenantUser`, `TenantPermission`, `EntityTenant` |
+| **Governance** | `AuditLog` |
 | **Tático** | `MatchLineup`, `LineupPlayer` |
 | **Ranking/Mídia/Odds** | `Ranking`, `MediaAsset`, `Odds` |
 | **Live State** | `MatchStateSnapshot` |
@@ -822,6 +851,36 @@ graph LR
 | **Precisão Decimal**   | `decimal.js` com 20 casas decimais     |
 | **Componente Client**  | `'use client'` para estado interativo  |
 | **Módulos puros**      | `mathEngine` e `financeEngine` sem副作用 |
+
+---
+
+## 🏢 MoirAI Enterprise Dashboard & Governance Center (MOI-ADM)
+
+### 7 Dashboard Modules
+
+| Module | Concept | KPIs |
+|--------|---------|------|
+| **1 — Global Operations Center** | NOC-inspired trading terminal for cloud observability | live_matches_count, events_per_minute_throughput, websocket_connection_latency_ms, active_tenants_count, kafka_consumer_lag_offset, redis_cache_hit_ratio, api_gateway_requests_per_second, live_snapshots_per_second, failed_ingestion_jobs_count, data_providers_status_online |
+| **2 — Tenant Governance Center** | SaaS multi-tenant commercial & resource administration | storage_allocation_per_tenant_bytes, estimated_infrastructure_cost_runrate, requests_per_minute_load, vector_embeddings_generated_count, websocket_egress_traffic_bandwidth |
+| **3 — Live Match Command Center** | Reactive real-time tactical operation board | live_scores, instantaneous_event_ticker, match_chronological_timeline, offensive_pressure_index, momentum_graphing, live_xg, cv_heatmap, dynamic_possession, websocket_mesh_state |
+| **4 — AI Analytics Center** | ML ops, vector serving & predictive analysis | active_embeddings_volume, ml_inference_throughput, deployed_models_lineage, data_drift_detection, model_accuracy_tracking, feature_store_pipeline_runs |
+| **5 — Observability Infra** | SRE monitoring telemetry | cpu_utilization, ram_allocation, redis_memory_footprint, kafka_topic_lag, websocket_rtt_ms, database_row_locks, slow_query_logs, dead_letter_queues_dlq_status |
+| **6 — Security & Audit Center** | Enterprise compliance & forensic logging | login_attempts_vector, active_jwt_sessions, rbac_unauthorized_violations, tenant_boundary_leakage_violations, api_abuse_patterns, rate_limiting_triggers, tamper_proof_audit_trail |
+| **7 — Media Broadcast Control** | Multimedia ingestion & highlight automation | live_rtmp_srt_streams, automated_clip_generation, match_highlights_metadata, instant_replay_triggers, video_ingestion_pipelines, cv_tracking_timecode_sync |
+
+### Frontend Stack Specification
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js (App Router) |
+| Library | React |
+| Styling | Tailwind CSS |
+| UI Components | shadcn/ui |
+| Charting Engine | Apache ECharts |
+| Real-time Networking | Native WebSocket Gateway client |
+| State Management | Zustand (Slice pattern for low-latency) |
+| Geospatial | Mapbox GL / deck.gl |
+| Advanced Sports Viz | realtime spatial heatmaps, player biometric radar charts, interactive tactical boards, dynamic passing networks, spatial tracking overlays (Canvas) |
 
 ---
 
@@ -893,6 +952,15 @@ O volume de eventos em tempo real saturará o modelo puramente relacional:
 
 ## 📝 CHANGELOG
 
+### 2026-05-27 (v9) — v0.3.5-Admin · MOI-ADM
+
+- **RBAC Enterprise**: `system_role` ENUM (7 papéis: super_admin, global_manager, tenant_admin, competition_manager, scout, analyst, viewer) + coluna em `tenant_users`
+- **Audit Trail**: `audit_logs` table com actor_user_id, tenant_id, action, entity_type/entity_id, ip_address (INET), user_agent (TEXT), metadata JSONB (diff state before/after), created_at — 4 índices estratégicos para auditoria forense
+- **RLS**: Política de isolamento `tenant_isolation_audit_logs` — todas as queries filtradas por tenant_id
+- **Tipos TS**: `SystemRole` type alias + `AuditLog` interface + `systemRole: SystemRole` em `TenantUser`
+- **Seed**: 5 audit_logs (login, cache invalidation, event revision, RBAC violation, ingestion failure)
+- **Schema**: 51 tabelas, 19 ENUMs (18 schema.sql + 1 migration), 12 RLS policies
+
 ### 2026-05-27 (v8) — v0.3.5-Release
 
 - **ML Feature Store**: `ml_features` table com lineage control (entity_type, feature_group, model_version, calculated_at) + RLS + janela temporal anti-leakage
@@ -902,7 +970,7 @@ O volume de eventos em tempo real saturará o modelo puramente relacional:
 - **Event Lifecycle**: Domain events catalog (9 eventos), mutation flags (is_current, parent_event_id, revision_reason)
 - **Tipos**: `MlFeature` + `FeatureGroup` type
 - **Seed**: 2 ml_features (tactical, physical groups)
-- **Schema**: 50 tabelas, 18 ENUMs (17 schema.sql + 1 migration), 3 MVs + 2 views = 5 views no total, 11 RLS policies
+- **Schema**: 50 tabelas, 18 ENUMs (17 schema.sql + 1 migration), 3 MVs + 2 views = 5 views no total, 12 RLS policies
 
 ### 2026-05-27 (v7)
 

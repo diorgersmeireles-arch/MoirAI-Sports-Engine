@@ -29,6 +29,20 @@ export type EdgePredicate = 'played_with' | 'coached_by' | 'rival_of' | 'injured
 // =============================================================================
 
 export type FeatureGroup = 'tactical' | 'physical' | 'psychological' | 'performance' | 'scouting';
+export type SystemRole = 'super_admin' | 'global_manager' | 'tenant_admin' | 'competition_manager' | 'scout' | 'analyst' | 'viewer';
+
+export interface AuditLog {
+  id: string;
+  actorUserId: string;
+  tenantId: string;
+  action: string;
+  entityType?: string;
+  entityId?: string;
+  ipAddress: string;
+  userAgent: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
 
 export interface MlFeature {
   id: string;
@@ -383,6 +397,7 @@ export interface TenantUser {
   email?: string;
   fullName?: string;
   role: TenantRole;
+  systemRole: SystemRole;
   isActive: boolean;
   lastLoginAt?: string;
   createdAt: string;

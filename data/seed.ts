@@ -5,7 +5,7 @@ import type {
   MatchLineup, LineupPlayer, Ranking, MediaAsset, Odds,
   Organization, Tenant, TenantUser, TenantPermission,
   MatchStateSnapshot, SportEvent, EntityEmbedding,
-  EntityTenant, GraphNode, GraphEdge, MlFeature,
+  EntityTenant, GraphNode, GraphEdge, MlFeature, AuditLog,
 } from '../types/database';
 
 export const competitions: Competition[] = [
@@ -331,8 +331,8 @@ export const tenantsData: Tenant[] = [
 ];
 
 export const tenantUsersData: TenantUser[] = [
-  { id: 'tu1', tenantId: 'ten1', userId: 'auth0|user1', email: 'admin@madev.com', fullName: 'Admin MADev', role: 'admin', isActive: true, createdAt: '2025-01-01T00:00:00Z' },
-  { id: 'tu2', tenantId: 'ten1', userId: 'auth0|user2', email: 'scout@madev.com', fullName: 'Scout Analista', role: 'scout', isActive: true, createdAt: '2025-01-10T00:00:00Z' },
+  { id: 'tu1', tenantId: 'ten1', userId: 'auth0|user1', email: 'admin@madev.com', fullName: 'Admin MADev', role: 'admin', systemRole: 'super_admin', isActive: true, createdAt: '2025-01-01T00:00:00Z' },
+  { id: 'tu2', tenantId: 'ten1', userId: 'auth0|user2', email: 'scout@madev.com', fullName: 'Scout Analista', role: 'scout', systemRole: 'scout', isActive: true, createdAt: '2025-01-10T00:00:00Z' },
 ];
 
 export const tenantPermissionsData: TenantPermission[] = [
@@ -422,6 +422,17 @@ export const mlFeaturesData: MlFeature[] = [
     featureEngine: 'sql-aggregation', sourceTable: 'player_coordinates',
     calculatedAt: '2025-05-01T00:00:00Z', createdAt: '2025-05-01T00:00:00Z',
   },
+];
+
+// =============================================================================
+// ENTERPRISE AUDIT & GOVERNANCE (MOI-ADM)
+// =============================================================================
+export const auditLogsData: AuditLog[] = [
+  { id: 'al1', actorUserId: 'auth0|user1', tenantId: 'ten1', action: 'auth.login', entityType: 'tenant_users', entityId: 'tu1', ipAddress: '192.168.1.100', userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/125.0.0.0', metadata: { method: 'oauth2', provider: 'auth0' }, createdAt: '2025-05-27T08:00:00Z' },
+  { id: 'al2', actorUserId: 'auth0|user1', tenantId: 'ten1', action: 'match.invalidate_cache', entityType: 'matches', entityId: 'm1', ipAddress: '192.168.1.100', userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/125.0.0.0', metadata: { reason: 'score_correction', cache_key: 'live:match:m1' }, createdAt: '2025-05-27T08:05:00Z' },
+  { id: 'al3', actorUserId: 'auth0|user2', tenantId: 'ten1', action: 'scout.event_revision', entityType: 'sport_events_v3', entityId: 'se1', ipAddress: '10.0.0.42', userAgent: 'MoirAI-Scout-Client/1.0', metadata: { before: { is_current: true, version: 1 }, after: { is_current: false, version: 2 }, revision_reason: 'VAR review - offside' }, createdAt: '2025-05-27T09:15:00Z' },
+  { id: 'al4', actorUserId: 'auth0|user1', tenantId: 'ten1', action: 'rbac.violation', entityType: 'standings', ipAddress: '192.168.1.100', userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/125.0.0.0', metadata: { attempted_role: 'viewer', required_role: 'admin', resource: 'standings:write', blocked: true }, createdAt: '2025-05-27T10:00:00Z' },
+  { id: 'al5', actorUserId: 'system', tenantId: 'ten1', action: 'ingestion.failed', entityType: 'sport_events', ipAddress: '0.0.0.0', userAgent: 'MoirAI-Ingestion-Pipeline/1.0', metadata: { provider: 'stats-api', error_code: 'ECONNRESET', retry_count: 3, dlq_routed: true }, createdAt: '2025-05-27T10:30:00Z' },
 ];
 
 export const allTeams = [...teams, ...volleyballTeams, ...basketballTeams, ...baseballTeams];

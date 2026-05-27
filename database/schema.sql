@@ -26,6 +26,7 @@ CREATE TYPE ranking_type AS ENUM ('player_overall', 'team_form', 'top_scorer', '
 CREATE TYPE staff_role AS ENUM ('head_coach', 'assistant_coach', 'fitness_coach', 'scout', 'analyst', 'physiotherapist', 'doctor', 'director_of_football', 'sporting_director');
 CREATE TYPE entity_type_enum AS ENUM ('player', 'team', 'match', 'competition', 'venue', 'scout_report', 'article');
 CREATE TYPE edge_predicate_enum AS ENUM ('played_with', 'coached_by', 'rival_of', 'injured_in', 'transferred_to', 'agent_of', 'tactical_cluster');
+CREATE TYPE system_role AS ENUM ('super_admin', 'global_manager', 'tenant_admin', 'competition_manager', 'scout', 'analyst', 'viewer');
 
 -- =============================================================================
 -- MULTI-TENANT SAAS (MOI-014)
@@ -68,6 +69,7 @@ CREATE TABLE tenant_users (
   email           VARCHAR(255),
   full_name       VARCHAR(200),
   role            VARCHAR(50) CHECK (role IN ('admin', 'manager', 'scout', 'analyst', 'viewer')),
+  system_role     system_role NOT NULL DEFAULT 'viewer',  -- RBAC enterprise (MOI-ADM)
   is_active       BOOLEAN NOT NULL DEFAULT TRUE,
   last_login_at   TIMESTAMPTZ,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -1555,6 +1557,44 @@ CREATE INDEX idx_ml_features_calculated ON ml_features(calculated_at);
 
 ALTER TABLE ml_features ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation_ml_features ON ml_features
+    FOR ALL USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
+
+-- =============================================================================
+-- ENTERPRISE AUDIT & GOVERNANCE (MOI-ADM) — Tamper-Proof Audit Trail
+-- Rastreamento forense de todas as operações críticas do sistema
+-- =============================================================================
+
+CREATE TABLE audit_logs (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    -- Identificação dos atores e isolamento de escopo
+    actor_user_id   UUID NOT NULL,                     -- FK para tenant_users (ou auth provider)
+    tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,
+
+    -- Detalhes da operação executada
+    action          VARCHAR(100) NOT NULL,              -- Ex: 'auth.failed_login', 'match.invalidate_cache', 'rbac.violation'
+    entity_type     VARCHAR(50),                         -- Tabela alvo (Ex: 'sport_events', 'odds')
+    entity_id       UUID,                                -- Registro alvo específico
+
+    -- Metadados de rede e telemetria forense
+    ip_address      INET NOT NULL,                       -- Endereço IPv4/IPv6 de origem
+    user_agent      TEXT NOT NULL,                        -- Assinatura do client SDK/navegador
+
+    -- Payload flexível para auditoria profunda (Diff State)
+    -- Ex: { "before": { "is_current": true }, "after": { "is_current": false } }
+    metadata        JSONB NOT NULL DEFAULT '{}'::jsonb,
+
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Índices estratégicos para auditoria forense veloz
+CREATE INDEX idx_audit_logs_actor ON audit_logs(actor_user_id);
+CREATE INDEX idx_audit_logs_tenant_action ON audit_logs(tenant_id, action);
+CREATE INDEX idx_audit_logs_chronological ON audit_logs(created_at DESC);
+CREATE INDEX idx_audit_logs_entity ON audit_logs(entity_type, entity_id) WHERE entity_id IS NOT NULL;
+
+ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation_audit_logs ON audit_logs
     FOR ALL USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
 
 -- =============================================================================
