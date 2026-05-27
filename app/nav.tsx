@@ -10,6 +10,8 @@ const navItems = [
   { href: '/compare', label: 'Comparar' },
   { href: '/scanner', label: 'Scanner' },
   { href: '/competitions', label: 'Competições' },
+  { href: '/legends', label: '🏆 Lendas' },
+  { href: '/dream-team', label: '⭐ Dream Team' },
 ];
 
 export default function NavBar() {

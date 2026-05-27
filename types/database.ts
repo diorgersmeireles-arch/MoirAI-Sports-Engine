@@ -62,6 +62,35 @@ export interface MlFeature {
 }
 
 // =============================================================================
+// DREAM TEAM — LENDAS DO ESPORTE (MOI-DT)
+// =============================================================================
+
+export interface DreamTeam {
+  id: string;
+  tenantId: string;
+  name: string;
+  sportId: SportType;
+  formation?: string;
+  maxPlayers: number;
+  isPublic: boolean;
+  totalRating?: number;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DreamTeamPlayer {
+  id: string;
+  dreamTeamId: string;
+  playerId: string;
+  slotPosition?: string;
+  shirtNumber?: number;
+  isCaptain: boolean;
+  isViceCaptain: boolean;
+  addedAt: string;
+}
+
+// =============================================================================
 // DOMÍNIO (Compartilhado)
 // =============================================================================
 
@@ -138,6 +167,8 @@ export interface Player {
   weightKg?: number;
   imageUrl?: string;
   retired: boolean;
+  isLegend?: boolean;
+  legendRating?: number;
   metadata?: PlayerMetadata;
 }
 

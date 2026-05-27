@@ -212,6 +212,8 @@ CREATE TABLE players (
   weight_kg       DECIMAL(5,2) CHECK (weight_kg > 0),
   image_url       TEXT,
   retired         BOOLEAN NOT NULL DEFAULT FALSE,
+  is_legend       BOOLEAN NOT NULL DEFAULT FALSE,   -- Lenda do esporte (Dream Team)
+  legend_rating   SMALLINT CHECK (legend_rating BETWEEN 1 AND 100),  -- Overall lendário (1-100)
   metadata        JSONB                -- Dados específicos por esporte
 );
 
@@ -1558,6 +1560,54 @@ CREATE INDEX idx_ml_features_calculated ON ml_features(calculated_at);
 ALTER TABLE ml_features ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation_ml_features ON ml_features
     FOR ALL USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
+
+-- =============================================================================
+-- DREAM TEAM — LENDAS DO ESPORTE (MOI-DT)
+-- Permite montar lineups com jogadores lendários de qualquer época
+-- =============================================================================
+
+CREATE TABLE dream_teams (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    name            VARCHAR(200) NOT NULL,
+    sport_id        sport_type NOT NULL,
+    formation       VARCHAR(20),                           -- Ex: '4-3-3', '2-3-1' (vôlei), '5-out' (basquete)
+    max_players     SMALLINT NOT NULL DEFAULT 11,
+    is_public       BOOLEAN NOT NULL DEFAULT FALSE,
+    total_rating    DECIMAL(5,2),                          -- Média do rating do time
+    created_by      UUID,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE dream_team_players (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    dream_team_id   UUID NOT NULL REFERENCES dream_teams(id) ON DELETE CASCADE,
+    player_id       UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    slot_position   VARCHAR(50),                           -- Posição no esquema tático
+    shirt_number    SMALLINT,
+    is_captain      BOOLEAN NOT NULL DEFAULT FALSE,
+    is_vice_captain BOOLEAN NOT NULL DEFAULT FALSE,
+    added_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (dream_team_id, player_id)
+);
+
+CREATE INDEX idx_dream_teams_tenant ON dream_teams(tenant_id);
+CREATE INDEX idx_dream_teams_sport ON dream_teams(sport_id);
+CREATE INDEX idx_dt_players_team ON dream_team_players(dream_team_id);
+
+ALTER TABLE dream_teams ENABLE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation_dream_teams ON dream_teams
+    FOR ALL USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
+
+ALTER TABLE dream_team_players ENABLE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation_dt_players ON dream_team_players
+    FOR ALL USING (
+        dream_team_id IN (
+            SELECT id FROM dream_teams
+            WHERE tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
+        )
+    );
 
 -- =============================================================================
 -- ENTERPRISE AUDIT & GOVERNANCE (MOI-ADM) — Tamper-Proof Audit Trail

@@ -82,7 +82,7 @@ Core domain events:
 moirai-sports-engine/
 ├── app/
 │   ├── layout.tsx              # Layout root com NavBar
-│   ├── nav.tsx                 # Barra de navegação (Dashboard, Partidas, Atletas, Comparar, Scanner, Competições)
+│   ├── nav.tsx                 # Barra de navegação (Dashboard, Partidas, Atletas, Comparar, Scanner, Competições, Lendas, Dream Team)
 │   ├── globals.css             # Tailwind v3 + tema dark custom
 │   ├── page.tsx                # Dashboard: stats, live matches, standings mini, scanner preview
 │   ├── compare/
@@ -97,27 +97,33 @@ moirai-sports-engine/
 │   │   └── page.tsx            # Scanner ao vivo com thresholds (score mínimo, xG total)
 │   ├── competitions/
 │   │   └── page.tsx            # Tabela de classificação com seletores de competição/temporada
-│       └── api/
-│       ├── matches/route.ts         # GET: matches (filtro por id, status)
-│       ├── players/route.ts         # GET: players (filtro por id, sport, q/search)
-│       ├── competitions/route.ts    # GET: listar; POST: standings
-│       ├── scanner/route.ts         # GET: partidas escaneadas
-│       ├── standings/route.ts       # GET: classificação por competitionId + seasonId
-│       ├── live/
-│       │   └── match/[id]/route.ts  # GET: snapshot + gateway WebSocket fallback
-│       └── v1/
-│           ├── ai/
-│           │   └── scouting-report/route.ts  # POST: similaridade vetorial + grafo
-│           └── matches/
-│               └── live/route.ts    # GET: partidas ao vivo (Redis pattern)
+│   ├── legends/
+│   │   └── page.tsx            # Galeria de lendas do esporte com filtro por modalidade
+│   └── dream-team/
+│       └── page.tsx            # Construtor de Dream Team com campo tático e seleção de lendas
+├── api/
+│   ├── matches/route.ts         # GET: matches (filtro por id, status)
+│   ├── players/route.ts         # GET: players (filtro por id, sport, q/search)
+│   ├── competitions/route.ts    # GET: listar; POST: standings
+│   ├── scanner/route.ts         # GET: partidas escaneadas
+│   ├── standings/route.ts       # GET: classificação por competitionId + seasonId
+│   ├── legends/route.ts         # GET: lendas do esporte (filtro por sport)
+│   ├── dream-teams/route.ts     # GET: listar dream teams; POST: criar dream team
+│   ├── live/
+│   │   └── match/[id]/route.ts  # GET: snapshot + gateway WebSocket fallback
+│   └── v1/
+│       ├── ai/
+│       │   └── scouting-report/route.ts  # POST: similaridade vetorial + grafo
+│       └── matches/
+│           └── live/route.ts    # GET: partidas ao vivo (Redis pattern)
 ├── components/
 │   ├── LiveMatchTracker.tsx    # Componente React de simulação ao vivo (693 linhas)
 │   └── tactical/
 │       └── SpatialPitchRender.tsx  # Canvas 25 FPS: atletas, bola, heatmap (MOI-LMCC)
 ├── data/
-│   └── seed.ts                 # Dados mockados: 5 comps, 23 times, 18 jogadores, 14 partidas, multi-sport stats, 7 atributos, 3 cartões + staff, injuries, transfers, lineups, rankings, odds, multi-tenant, embeddings, knowledge graph, ml features, audit logs
+│   └── seed.ts                 # Dados mockados: 5 comps, 23 times, 28 jogadores (18 ativos + 10 lendas), 14 partidas, multi-sport stats, 7 atributos, 3 cartões + staff, injuries, transfers, lineups, rankings, odds, multi-tenant, embeddings, knowledge graph, ml features, audit logs, dream teams
 ├── database/
-│   ├── schema.sql              # Schema PostgreSQL: 51 tabelas, 19 ENUMs, Knowledge Graph, ML Feature Store, Event Versioning, Audit & Governance, multi-tenant, embeddings, MV
+│   ├── schema.sql              # Schema PostgreSQL: 52 tabelas, 19 ENUMs, Knowledge Graph, ML Feature Store, Event Versioning, Audit & Governance, Dream Team, multi-tenant, embeddings, MV
 │   ├── clickhouse_observability.sql     # ClickHouse DDL: MergeTree, MV, Kafka Engine, NOC queries
 │   └── migration_athletes.sql  # Perfil individual: atributos, cartões, teia
 ├── hooks/
@@ -134,7 +140,7 @@ moirai-sports-engine/
 │   └── useLiveMatchStore.ts    # Zustand Slice Pattern: latência zero, 25 FPS (MOI-LMCC)
 ├── types/
 │   ├── sports.ts               # Contratos de dados do domínio (279 linhas)
-│   └── database.ts             # Tipagens do banco de dados (1216 linhas, 87 exports)
+│   └── database.ts             # Tipagens do banco de dados (1236 linhas, 91 exports)
 ├── utils/
 │   ├── mathEngine.ts           # Funções estatísticas puras (254 linhas)
 │   └── financeEngine.ts        # EV e Critério de Kelly (133 linhas)
@@ -1017,6 +1023,18 @@ O volume de eventos em tempo real saturará o modelo puramente relacional:
 ```
 
 ## 📝 CHANGELOG
+
+### 2026-05-27 (v11) — v0.3.5-DreamTeam · Legends & Dream Team (MOI-DT)
+
+- **Legends System**: `is_legend BOOLEAN` + `legend_rating SMALLINT CHECK(1-100)` adicionados à tabela `players`; 10 lendas em 4 esportes (Pelé 98, Maradona 97, Zico 94 — football; MJ 99, Magic 97, Kareem 96 — basketball; Kiraly 95, Giba 93 — volleyball; Babe Ruth 95, Jackie Robinson 94 — baseball)
+- **Dream Team Tables**: `dream_teams` (com tenant_id, sport_id, formation, max_players, total_rating, is_public, RLS) + `dream_team_players` (com slot_position, shirt_number, is_captain, UNIQUE dream_team_id + player_id, RLS via subquery)
+- **2 novas API routes**: `GET /api/legends?sport=football` (retorna lendas com overall calculado = legendRating * 0.95 + cards), `GET+POST /api/dream-teams` (criação com validação de name/sportId, listagem com players populados)
+- **2 novas páginas**: `/legends` (galeria com cards, rating dourado, barra overall, filtro por esporte), `/dream-team` (builder com campo tático SVG 11 posições, lista de lendas selecionáveis, formação 4-3-3, swap automático, média geral, aba "Meus Times" com listagem)
+- **Navegação**: Links "🏆 Lendas" e "⭐ Dream Team" adicionados à NavBar
+- **Seed expandido**: `legendsData` (10 lendas), `dreamTeamsData` (1 time), `dreamTeamPlayersData` (3 jogadores no time)
+- **Tipos**: `isLegend`, `legendRating` em `Player`; interfaces `DreamTeam`, `DreamTeamPlayer`
+- **Schema**: 52 tabelas, 19 ENUMs, 12 RLS policies
+- **Build**: 19 routes, 0 errors
 
 ### 2026-05-27 (v10) — v0.3.5-LMCC · LiveMatchCommandCenter + SecurityGateway + ClickHouse
 

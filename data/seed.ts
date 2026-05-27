@@ -232,6 +232,26 @@ export const baseballPlayers: Player[] = [
   { id: 'bbp2', sportId: 'baseball', fullName: 'Shohei Ohtani', shortName: 'Ohtani', nationality: 'Japão', heightCm: 193, weightKg: 95, retired: false, metadata: { primaryPosition: 'designated_hitter', battingHand: 'left', throwingHand: 'right' } },
 ];
 
+// =============================================================================
+// LENDAS DO ESPORTE (Dream Team - MOI-DT)
+// =============================================================================
+export const legendsData: Player[] = [
+  // Football
+  { id: 'leg1', sportId: 'football', fullName: 'Pelé', shortName: 'Pelé', birthDate: '1940-10-23', nationality: 'Brasil', heightCm: 173, weightKg: 74, imageUrl: '/faces/pele.svg', retired: true, isLegend: true, legendRating: 98, metadata: { position: 'forward', preferredFoot: 'right', shirtNumber: 10 } },
+  { id: 'leg2', sportId: 'football', fullName: 'Diego Maradona', shortName: 'Maradona', birthDate: '1960-10-30', nationality: 'Argentina', heightCm: 165, weightKg: 67, imageUrl: '/faces/maradona.svg', retired: true, isLegend: true, legendRating: 97, metadata: { position: 'attacking_midfielder', preferredFoot: 'left', shirtNumber: 10 } },
+  { id: 'leg3', sportId: 'football', fullName: 'Arthur Antunes Coimbra', shortName: 'Zico', birthDate: '1953-03-03', nationality: 'Brasil', heightCm: 172, weightKg: 70, imageUrl: '/faces/zico.svg', retired: true, isLegend: true, legendRating: 94, metadata: { position: 'attacking_midfielder', preferredFoot: 'right', shirtNumber: 10 } },
+  // Basketball
+  { id: 'leg4', sportId: 'basketball', fullName: 'Michael Jordan', shortName: 'MJ', birthDate: '1963-02-17', nationality: 'EUA', heightCm: 198, weightKg: 98, imageUrl: '/faces/mj.svg', retired: true, isLegend: true, legendRating: 99, metadata: { position: 'shooting_guard', jerseyNumber: 23 } },
+  { id: 'leg5', sportId: 'basketball', fullName: 'Magic Johnson', shortName: 'Magic', birthDate: '1959-08-14', nationality: 'EUA', heightCm: 206, weightKg: 100, imageUrl: '/faces/magic.svg', retired: true, isLegend: true, legendRating: 97, metadata: { position: 'point_guard', jerseyNumber: 32 } },
+  { id: 'leg6', sportId: 'basketball', fullName: 'Kareem Abdul-Jabbar', shortName: 'Kareem', birthDate: '1947-04-16', nationality: 'EUA', heightCm: 218, weightKg: 102, imageUrl: '/faces/kareem.svg', retired: true, isLegend: true, legendRating: 96, metadata: { position: 'center', jerseyNumber: 33 } },
+  // Volleyball
+  { id: 'leg7', sportId: 'volleyball', fullName: 'Karch Kiraly', shortName: 'Kiraly', birthDate: '1960-11-03', nationality: 'EUA', heightCm: 188, weightKg: 82, imageUrl: '/faces/kiraly.svg', retired: true, isLegend: true, legendRating: 95, metadata: { position: 'outside_hitter', reachCm: 335, shirtNumber: 1 } },
+  { id: 'leg8', sportId: 'volleyball', fullName: 'Giba', shortName: 'Giba', birthDate: '1976-08-23', nationality: 'Brasil', heightCm: 192, weightKg: 85, imageUrl: '/faces/giba.svg', retired: true, isLegend: true, legendRating: 93, metadata: { position: 'outside_hitter', reachCm: 340, shirtNumber: 7 } },
+  // Baseball
+  { id: 'leg9', sportId: 'baseball', fullName: 'Babe Ruth', shortName: 'Ruth', birthDate: '1895-02-06', nationality: 'EUA', heightCm: 188, weightKg: 98, imageUrl: '/faces/ruth.svg', retired: true, isLegend: true, legendRating: 95, metadata: { primaryPosition: 'right_field', battingHand: 'left', throwingHand: 'left' } },
+  { id: 'leg10', sportId: 'baseball', fullName: 'Jackie Robinson', shortName: 'Robinson', birthDate: '1919-01-31', nationality: 'EUA', heightCm: 180, weightKg: 80, imageUrl: '/faces/robinson.svg', retired: true, isLegend: true, legendRating: 94, metadata: { primaryPosition: 'second_base', battingHand: 'right', throwingHand: 'right' } },
+];
+
 export const baseballMatches: Match[] = [
   { id: 'bbm1', sportId: 'baseball', competitionId: 'c1', seasonId: 's2025', homeTeamId: 'bbt1', awayTeamId: 'bbt2', status: 'finished', scheduledAt: '2025-04-12T14:00:00Z', startedAt: '2025-04-12T14:00:00Z', finishedAt: '2025-04-12T16:45:00Z', homeScore: 6, awayScore: 3, createdAt: '2025-04-01T00:00:00Z', updatedAt: '2025-04-12T16:45:00Z' },
 ];
@@ -435,6 +455,19 @@ export const auditLogsData: AuditLog[] = [
   { id: 'al5', actorUserId: 'system', tenantId: 'ten1', action: 'ingestion.failed', entityType: 'sport_events', ipAddress: '0.0.0.0', userAgent: 'MoirAI-Ingestion-Pipeline/1.0', metadata: { provider: 'stats-api', error_code: 'ECONNRESET', retry_count: 3, dlq_routed: true }, createdAt: '2025-05-27T10:30:00Z' },
 ];
 
+// =============================================================================
+// DREAM TEAM SEED (MOI-DT)
+// =============================================================================
+export const dreamTeamsData: DreamTeam[] = [
+  { id: 'dt1', tenantId: 'ten1', name: 'Os Imortais', sportId: 'football', formation: '4-3-3', maxPlayers: 11, isPublic: true, totalRating: 96.3, createdAt: '2025-05-27T00:00:00Z', updatedAt: '2025-05-27T00:00:00Z' },
+];
+
+export const dreamTeamPlayersData: DreamTeamPlayer[] = [
+  { id: 'dtp1', dreamTeamId: 'dt1', playerId: 'leg1', slotPosition: 'ST', shirtNumber: 10, isCaptain: true, isViceCaptain: false, addedAt: '2025-05-27T00:00:00Z' },
+  { id: 'dtp2', dreamTeamId: 'dt1', playerId: 'leg2', slotPosition: 'CAM', shirtNumber: 10, isCaptain: false, isViceCaptain: true, addedAt: '2025-05-27T00:00:00Z' },
+  { id: 'dtp3', dreamTeamId: 'dt1', playerId: 'leg3', slotPosition: 'CM', shirtNumber: 10, isCaptain: false, isViceCaptain: false, addedAt: '2025-05-27T00:00:00Z' },
+];
+
 export const allTeams = [...teams, ...volleyballTeams, ...basketballTeams, ...baseballTeams];
 
 function getTeamName(teamId: string): string {
@@ -446,7 +479,7 @@ function getTeamShort(teamId: string): string {
 }
 
 export const allMatches = [...matches, ...volleyballMatches, ...basketballMatches, ...baseballMatches];
-export const allPlayers = [...players, ...volleyballPlayers, ...basketballPlayers, ...baseballPlayers];
+export const allPlayers = [...players, ...volleyballPlayers, ...basketballPlayers, ...baseballPlayers, ...legendsData];
 
 export function getMatchWithDetails(matchId: string) {
   const match = allMatches.find(m => m.id === matchId);
