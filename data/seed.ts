@@ -541,3 +541,17 @@ export const dreamteamRankingsData = [
   { id: 'dtr1', fantasyTeamId: 'ft1', eloRating: 1250, wins: 12, losses: 4, draws: 2, currentStreak: 3, updatedAt: '2025-05-28T00:00:00Z' },
   { id: 'dtr2', fantasyTeamId: 'ft2', eloRating: 1100, wins: 8, losses: 7, draws: 3, currentStreak: -1, updatedAt: '2025-05-28T00:00:00Z' },
 ];
+
+// =============================================================================
+// ADMIN GLOBAL PANEL (MOI-ADM-PANEL)
+// =============================================================================
+export const tenantQuotasData = [
+  { id: 'tq1', tenantId: 'ten1', maxApiRequestsPerMinute: 120, maxWebsocketConnections: 25, maxVectorEmbeddingsStorage: 10000, allocatedStorageBytes: 10737418240, isActive: true, updatedAt: '2025-05-28T00:00:00Z' },
+  { id: 'tq2', tenantId: 'ten2', maxApiRequestsPerMinute: 60, maxWebsocketConnections: 10, maxVectorEmbeddingsStorage: 5000, allocatedStorageBytes: 5368709120, isActive: true, updatedAt: '2025-05-28T00:00:00Z' },
+];
+
+export const systemParametersData = [
+  { paramKey: 'maintenance_mode', paramValue: { enabled: false, message: '' }, description: 'Ativa modo de manutenção global', updatedBy: 'auth0|user1', updatedAt: '2025-05-28T00:00:00Z' },
+  { paramKey: 'rate_limit_default', paramValue: { rpm: 60, burst: 5 }, description: 'Limite padrão de requisições por minuto', updatedBy: 'auth0|user1', updatedAt: '2025-05-28T00:00:00Z' },
+  { paramKey: 'feature_flags', paramValue: { liveTracking: true, aiScouting: true, dreamTeam: true, adminPanel: true }, description: 'Feature flags globais do sistema', updatedBy: 'auth0|user1', updatedAt: '2025-05-28T00:00:00Z' },
+];

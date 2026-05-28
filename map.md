@@ -1027,6 +1027,18 @@ O volume de eventos em tempo real saturará o modelo puramente relacional:
 
 ## 📝 CHANGELOG
 
+### 2026-05-28 (v14) — v0.4.0-DB · Database Readiness
+
+- **Infraestrutura**: `docker-compose.yml` com PostgreSQL 16 + pgvector (init schema automático) + Redis 7 Alpine, health checks, volume persistente
+- **Conexão**: `lib/db.ts` — Pool de 20 conexões, slow query logging (>100ms), helper `checkConnection()`, suporte a transações
+- **Migrations**: `scripts/migrate.ts` — aplica `database/schema.sql` completo via CLI
+- **Seed real**: `scripts/seed.ts` — popula todas as 60 tabelas a partir dos dados em `data/seed.ts` (ON CONFLICT DO NOTHING)
+- **Fallback automático**: API routes (`/api/players`, `/api/matches`) tentam banco primeiro; se offline, usam seed data — sem quebra
+- **Query helpers**: `lib/queries/players.ts` (getPlayers, getPlayerById, getLegends) + `lib/queries/matches.ts` (getMatches, getMatchById, getLiveMatches) — tipados, com ILIKE search
+- **Config**: `.env` + `.env.example` com DATABASE_URL, REDIS_URL, JWT_SECRET; `.gitignore` atualizado para .env
+- **npm scripts**: `db:up`, `db:down`, `db:migrate`, `db:seed`, `db:setup`, `db:reset`
+- **Build**: 22 rotas, 0 erros
+
 ### 2026-05-28 (v13) — v0.3.5-Admin-Core · MOI-ADM-PANEL
 
 - **MOI-ADM-PANEL**: Painel Administrativo Global — 4 módulos operacionais integrados

@@ -7,6 +7,8 @@ import {
   playerCardsData,
   playerStats,
 } from '@/data/seed';
+import { getPlayers, getPlayerById } from '@/lib/queries/players';
+import { checkConnection } from '@/lib/db';
 
 function getPlayerTeam(playerId: string): string | undefined {
   for (const m of allMatches) {
@@ -22,7 +24,15 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
 
+  const dbOnline = await checkConnection().catch(() => false);
+
   if (id) {
+    if (dbOnline) {
+      const player = await getPlayerById(id);
+      if (!player) return NextResponse.json({ error: 'Player not found' }, { status: 404 });
+      return NextResponse.json(player);
+    }
+
     const player = allPlayers.find(p => p.id === id);
     if (!player) return NextResponse.json({ error: 'Player not found' }, { status: 404 });
 
@@ -46,11 +56,16 @@ export async function GET(request: Request) {
   }
 
   const sport = searchParams.get('sport');
+  const q = searchParams.get('q');
+
+  if (dbOnline) {
+    const result = await getPlayers({ sport: sport ?? undefined, search: q ?? undefined });
+    return NextResponse.json(result);
+  }
+
   let result = [...allPlayers];
   if (sport) result = result.filter(p => p.sportId === sport);
-
-  const query = searchParams.get('q')?.toLowerCase();
-  if (query) result = result.filter(p => p.fullName.toLowerCase().includes(query));
+  if (q) result = result.filter(p => p.fullName.toLowerCase().includes(q.toLowerCase()));
 
   return NextResponse.json(result.map(p => ({
     ...p,

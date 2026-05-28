@@ -50,11 +50,36 @@ Um scanner automatizado de alto desempenho que varre centenas de partidas simult
 
 ## 📦 Quick Start
 
+### Desenvolvimento (modo seed — sem banco)
+
 ```bash
 npm install
-npm run dev      # http://localhost:3000
-npm run build    # Build de produção (20 rotas, 0 erros)
+npm run dev          # http://localhost:3000
 ```
+
+### Produção / Banco de Dados Real
+
+```bash
+# 1. Sobe PostgreSQL 16 + pgvector via Docker
+npm run db:up
+
+# 2. Aplica o schema (60 tabelas, 20 ENUMs)
+npm run db:migrate
+
+# 3. Popula com dados de seed
+npm run db:seed
+
+# OU tudo de uma vez:
+npm run db:setup
+
+# 4. Build de produção
+npm run build        # 22 rotas, 0 erros
+npm run start
+```
+
+### Arquitetura de Dados
+
+As API routes detectam automaticamente se o banco está disponível. Com banco offline, usam os dados mockados em `data/seed.ts`. Com banco online, consultam PostgreSQL via `lib/db.ts` (pool de 20 conexões, slow query logging >100ms).
 
 ---
 
