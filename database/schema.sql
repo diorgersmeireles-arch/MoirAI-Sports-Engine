@@ -330,6 +330,45 @@ CREATE TABLE team_staff (
 CREATE INDEX idx_team_staff_team ON team_staff(team_id, season_id);
 
 -- =============================================================================
+-- ESTÁDIOS
+-- =============================================================================
+
+CREATE TABLE stadiums (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id       UUID NOT NULL,
+  name            VARCHAR(255) NOT NULL,
+  city            VARCHAR(100),
+  country_code    CHAR(2),
+  capacity        INT,
+  pitch_type      VARCHAR(50),                       -- 'Natural Grass', 'Hybrid', 'Artificial'
+  latitude        DOUBLE PRECISION,
+  longitude       DOUBLE PRECISION,
+  metadata        JSONB DEFAULT '{}'::jsonb,
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_stadiums_tenant ON stadiums(tenant_id);
+
+-- =============================================================================
+-- LOTES DE IMPORTAÇÃO (MOI-IMP - Unified Import System)
+-- =============================================================================
+
+CREATE TABLE import_batches (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id         UUID NOT NULL,
+  entity_type       VARCHAR(50) NOT NULL,            -- 'players', 'teams', 'staff', 'stadiums'
+  status            VARCHAR(20) DEFAULT 'pending',   -- 'pending', 'processing', 'completed', 'failed'
+  total_records     INT,
+  processed_records INT DEFAULT 0,
+  error_log         JSONB DEFAULT '[]'::jsonb,
+  created_by        UUID,
+  created_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_import_batches_tenant ON import_batches(tenant_id);
+CREATE INDEX idx_import_batches_status ON import_batches(status);
+
+-- =============================================================================
 -- LESÕES DE ATLETAS
 -- =============================================================================
 

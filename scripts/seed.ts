@@ -52,6 +52,8 @@ import {
   auditLogsData,
   tenantQuotasData,
   systemParametersData,
+  stadiumsData,
+  importBatchesData,
 } from '../data/seed';
 
 async function seed() {
@@ -134,7 +136,8 @@ async function seed() {
     await insertRows('dreamteam_rankings', dreamteamRankingsData);
     await insertRows('tenant_quotas_enforcement', tenantQuotasData);
     await insertRows('system_global_parameters', systemParametersData);
-    await insertRows('dreamteam_rankings', dreamteamRankingsData);
+    await insertRows('stadiums', stadiumsData);
+    await insertRows('import_batches', importBatchesData);
 
     console.log('✅ Seed data inserted successfully');
   } catch (err) {

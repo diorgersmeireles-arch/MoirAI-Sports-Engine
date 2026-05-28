@@ -1027,6 +1027,16 @@ O volume de eventos em tempo real saturará o modelo puramente relacional:
 
 ## 📝 CHANGELOG
 
+### 2026-05-28 (v15) — v0.3.8-Enterprise · MOI-IMP Unified Import System
+
+- **Schema**: `stadiums` (10 colunas, tenant-scoped, geo-coordinates) + `import_batches` (5 status, JSONB error_log, índices por tenant/status)
+- **Types**: `Stadium`, `ImportBatch`, `BulkImportPayload`, `BulkImportResult` — 4 novas interfaces (1450→1475 linhas, 99→103 exports)
+- **Seed data**: 5 estádios brasileiros (Maracanã, Allianz, Mineirão, Morumbi, Arena do Grêmio) + 3 lotes de importação (completed/processing, com error_log)
+- **API**: `POST /api/v1/import/bulk` — valida RBAC (super_admin/global_manager/tenant_admin), valida payload (entity_type + data[]), valida linhas (campo name obrigatório), dry_run mode, retorna batch_id + error_log
+- **Frontend**: `/import` — DataImportWizard com 4 steps (upload drag-and-drop, preview/mapping, progress spinner, review com tabela de erros); suporta JSON e CSV, dry run toggle
+- **Navegação**: "📥 Importar" no navbar
+- **Build**: 24 rotas, 0 erros, First Load JS 87.3 kB
+
 ### 2026-05-28 (v14) — v0.4.0-DB · Database Readiness
 
 - **Infraestrutura**: `docker-compose.yml` com PostgreSQL 16 + pgvector (init schema automático) + Redis 7 Alpine, health checks, volume persistente

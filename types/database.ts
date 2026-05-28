@@ -1376,6 +1376,51 @@ export interface PlayerRadarBaseball {
 // PERFIL COMPLETO DO ATLETA
 // =============================================================================
 
+export interface Stadium {
+  id: string;
+  tenant_id: string;
+  name: string;
+  city?: string;
+  country_code?: string;
+  capacity?: number;
+  pitch_type?: string;
+  latitude?: number;
+  longitude?: number;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ImportBatch {
+  id: string;
+  tenant_id: string;
+  entity_type: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  total_records?: number;
+  processed_records?: number;
+  error_log?: Array<{ row: number; message: string }>;
+  created_by?: string;
+  created_at: string;
+}
+
+export interface BulkImportPayload {
+  entity_type: 'players' | 'teams' | 'staff' | 'stadiums';
+  data: Record<string, unknown>[];
+  options?: {
+    update_existing?: boolean;
+    dry_run?: boolean;
+  };
+}
+
+export interface BulkImportResult {
+  batch_id: string;
+  entity_type: string;
+  status: string;
+  total_records: number;
+  processed_records: number;
+  errors: Array<{ row: number; message: string }>;
+  dry_run: boolean;
+}
+
 export interface PlayerProfile {
   id: string;
   fullName: string;

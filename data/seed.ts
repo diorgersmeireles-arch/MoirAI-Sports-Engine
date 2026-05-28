@@ -6,6 +6,7 @@ import type {
   Organization, Tenant, TenantUser, TenantPermission,
   MatchStateSnapshot, SportEvent, EntityEmbedding,
   EntityTenant, GraphNode, GraphEdge, MlFeature, AuditLog,
+  Stadium, ImportBatch,
 } from '../types/database';
 
 export const competitions: Competition[] = [
@@ -554,4 +555,21 @@ export const systemParametersData = [
   { paramKey: 'maintenance_mode', paramValue: { enabled: false, message: '' }, description: 'Ativa modo de manutenção global', updatedBy: 'auth0|user1', updatedAt: '2025-05-28T00:00:00Z' },
   { paramKey: 'rate_limit_default', paramValue: { rpm: 60, burst: 5 }, description: 'Limite padrão de requisições por minuto', updatedBy: 'auth0|user1', updatedAt: '2025-05-28T00:00:00Z' },
   { paramKey: 'feature_flags', paramValue: { liveTracking: true, aiScouting: true, dreamTeam: true, adminPanel: true }, description: 'Feature flags globais do sistema', updatedBy: 'auth0|user1', updatedAt: '2025-05-28T00:00:00Z' },
+];
+
+// =============================================================================
+// MOI-IMP UNIFIED IMPORT SYSTEM
+// =============================================================================
+export const stadiumsData: Stadium[] = [
+  { id: 'std1', tenant_id: 'ten1', name: 'Maracanã', city: 'Rio de Janeiro', country_code: 'BR', capacity: 78838, pitch_type: 'Natural Grass', latitude: -22.9121, longitude: -43.2302, metadata: { inaugurated: 1950, owner: 'Governo do Estado do RJ' }, created_at: '2025-01-01T00:00:00Z' },
+  { id: 'std2', tenant_id: 'ten1', name: 'Allianz Parque', city: 'São Paulo', country_code: 'BR', capacity: 43713, pitch_type: 'Artificial', latitude: -23.5273, longitude: -46.6786, metadata: { inaugurated: 2014, owner: 'Palmeiras' }, created_at: '2025-01-01T00:00:00Z' },
+  { id: 'std3', tenant_id: 'ten1', name: 'Mineirão', city: 'Belo Horizonte', country_code: 'BR', capacity: 61846, pitch_type: 'Natural Grass', latitude: -19.8659, longitude: -43.9714, metadata: { inaugurated: 1965 }, created_at: '2025-01-01T00:00:00Z' },
+  { id: 'std4', tenant_id: 'ten1', name: 'Morumbi', city: 'São Paulo', country_code: 'BR', capacity: 72039, pitch_type: 'Natural Grass', latitude: -23.6, longitude: -46.7204, metadata: { inaugurated: 1960, owner: 'São Paulo FC' }, created_at: '2025-01-01T00:00:00Z' },
+  { id: 'std5', tenant_id: 'ten1', name: 'Arena do Grêmio', city: 'Porto Alegre', country_code: 'BR', capacity: 55662, pitch_type: 'Natural Grass', latitude: -29.9737, longitude: -51.1935, metadata: { inaugurated: 2012, owner: 'Grêmio FBPA' }, created_at: '2025-01-01T00:00:00Z' },
+];
+
+export const importBatchesData: ImportBatch[] = [
+  { id: 'ib1', tenant_id: 'ten1', entity_type: 'players', status: 'completed', total_records: 150, processed_records: 150, error_log: [], created_by: 'auth0|user1', created_at: '2025-05-27T10:00:00Z' },
+  { id: 'ib2', tenant_id: 'ten1', entity_type: 'teams', status: 'completed', total_records: 20, processed_records: 18, error_log: [{ row: 15, message: 'Duplicate team name skipped' }, { row: 19, message: 'Invalid country code' }], created_by: 'auth0|user1', created_at: '2025-05-27T11:00:00Z' },
+  { id: 'ib3', tenant_id: 'ten2', entity_type: 'staff', status: 'processing', total_records: 45, processed_records: 22, error_log: [], created_by: 'auth0|user2', created_at: '2025-05-28T08:30:00Z' },
 ];
