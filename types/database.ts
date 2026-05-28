@@ -1376,6 +1376,33 @@ export interface PlayerRadarBaseball {
 // PERFIL COMPLETO DO ATLETA
 // =============================================================================
 
+export type BillingTier = 'standard_club' | 'enterprise_pro' | 'betting_provider_api' | 'unlimited_sandbox';
+export type InvoiceStatus = 'draft' | 'open' | 'paid' | 'uncollectible' | 'void';
+
+export interface TenantSubscriptionPlan {
+  id: string;
+  tenant_id: string;
+  tier: BillingTier;
+  current_period_start: string;
+  current_period_end: string;
+  stripe_customer_id?: string;
+  stripe_subscription_id?: string;
+  is_cancelled?: boolean;
+  created_at: string;
+}
+
+export interface TenantBillingInvoice {
+  id: string;
+  tenant_id: string;
+  amount_in_cents: number;
+  currency: string;
+  status: InvoiceStatus;
+  due_date: string;
+  paid_at?: string;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+}
+
 export interface Stadium {
   id: string;
   tenant_id: string;

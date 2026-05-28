@@ -6,7 +6,7 @@ import type {
   Organization, Tenant, TenantUser, TenantPermission,
   MatchStateSnapshot, SportEvent, EntityEmbedding,
   EntityTenant, GraphNode, GraphEdge, MlFeature, AuditLog,
-  Stadium, ImportBatch,
+  Stadium, ImportBatch, TenantSubscriptionPlan, TenantBillingInvoice,
 } from '../types/database';
 
 export const competitions: Competition[] = [
@@ -572,4 +572,18 @@ export const importBatchesData: ImportBatch[] = [
   { id: 'ib1', tenant_id: 'ten1', entity_type: 'players', status: 'completed', total_records: 150, processed_records: 150, error_log: [], created_by: 'auth0|user1', created_at: '2025-05-27T10:00:00Z' },
   { id: 'ib2', tenant_id: 'ten1', entity_type: 'teams', status: 'completed', total_records: 20, processed_records: 18, error_log: [{ row: 15, message: 'Duplicate team name skipped' }, { row: 19, message: 'Invalid country code' }], created_by: 'auth0|user1', created_at: '2025-05-27T11:00:00Z' },
   { id: 'ib3', tenant_id: 'ten2', entity_type: 'staff', status: 'processing', total_records: 45, processed_records: 22, error_log: [], created_by: 'auth0|user2', created_at: '2025-05-28T08:30:00Z' },
+];
+
+// =============================================================================
+// MOI-CORE-IDENTITY-BILLING
+// =============================================================================
+export const subscriptionPlansData: TenantSubscriptionPlan[] = [
+  { id: 'sp1', tenant_id: 'ten1', tier: 'enterprise_pro', current_period_start: '2025-01-01T00:00:00Z', current_period_end: '2026-01-01T00:00:00Z', stripe_customer_id: 'cus_abc123', stripe_subscription_id: 'sub_xyz789', is_cancelled: false, created_at: '2025-01-01T00:00:00Z' },
+  { id: 'sp2', tenant_id: 'ten2', tier: 'standard_club', current_period_start: '2025-03-15T00:00:00Z', current_period_end: '2025-09-15T00:00:00Z', is_cancelled: false, created_at: '2025-03-15T00:00:00Z' },
+];
+
+export const billingInvoicesData: TenantBillingInvoice[] = [
+  { id: 'bi1', tenant_id: 'ten1', amount_in_cents: 499900, currency: 'USD', status: 'paid', due_date: '2025-02-01T00:00:00Z', paid_at: '2025-01-28T12:00:00Z', metadata: { api_calls: 142000, storage_gb: 4.2 }, created_at: '2025-01-15T00:00:00Z' },
+  { id: 'bi2', tenant_id: 'ten1', amount_in_cents: 499900, currency: 'USD', status: 'open', due_date: '2025-03-01T00:00:00Z', metadata: { api_calls: 158000, storage_gb: 4.8 }, created_at: '2025-02-15T00:00:00Z' },
+  { id: 'bi3', tenant_id: 'ten2', amount_in_cents: 99900, currency: 'USD', status: 'open', due_date: '2025-04-15T00:00:00Z', metadata: { api_calls: 32000, storage_gb: 1.1 }, created_at: '2025-03-20T00:00:00Z' },
 ];

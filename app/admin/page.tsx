@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import type { TenantSubscriptionPlan, TenantBillingInvoice } from '@/types/database';
 
 interface SysHealth {
   status: string; timestamp: string;
@@ -22,10 +23,12 @@ interface AuditEntry {
 }
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<'noc' | 'quotas' | 'emergency' | 'compliance'>('noc');
+  const [tab, setTab] = useState<'noc' | 'quotas' | 'emergency' | 'compliance' | 'billing'>('noc');
   const [health, setHealth] = useState<SysHealth | null>(null);
   const [quotas, setQuotas] = useState<TenantQuota[]>([]);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
+  const [subscriptions, setSubscriptions] = useState<TenantSubscriptionPlan[]>([]);
+  const [invoices, setInvoices] = useState<TenantBillingInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [matchId, setMatchId] = useState('');
@@ -48,8 +51,9 @@ export default function AdminPage() {
       adminFetch('/api/admin?resource=sys-health'),
       adminFetch('/api/admin?resource=quotas'),
       adminFetch('/api/admin?resource=audit'),
+      adminFetch('/api/admin?resource=billing'),
     ])
-      .then(([h, q, a]) => { setHealth(h); setQuotas(q); setAudit(a); })
+      .then(([h, q, a, b]) => { setHealth(h); setQuotas(q); setAudit(a); setSubscriptions(b.subscriptions); setInvoices(b.invoices); })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   }, [adminFetch]);
@@ -87,6 +91,7 @@ export default function AdminPage() {
     { key: 'quotas' as const, label: '📊 Quotas SaaS', desc: 'Limites por tenant' },
     { key: 'emergency' as const, label: '🚨 Emergência', desc: 'Kill-switch & cache' },
     { key: 'compliance' as const, label: '🔍 Compliance', desc: 'Auditoria forense' },
+    { key: 'billing' as const, label: '💰 Faturamento', desc: 'Assinaturas & faturas' },
   ];
 
   if (loading) return (
@@ -299,6 +304,85 @@ export default function AdminPage() {
                     <td className="p-2 text-sport-dim font-mono">{entry.ipAddress ?? '-'}</td>
                     <td className="p-2 max-w-[200px] truncate text-sport-dim" title={JSON.stringify(entry.metadata)}>
                       {entry.metadata ? JSON.stringify(entry.metadata).substring(0, 60) : '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Billing / Subscription Management */}
+      {tab === 'billing' && (
+        <div className="space-y-6">
+          <div className="bg-sport-surface rounded-lg border border-sport-border overflow-hidden">
+            <div className="p-3 border-b border-sport-border font-semibold text-sm">Planos de Assinatura</div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-sport-border text-sport-dim text-xs">
+                  <th className="p-3 text-left">Tenant</th>
+                  <th className="p-3 text-left">Tier</th>
+                  <th className="p-3 text-center">Início</th>
+                  <th className="p-3 text-center">Fim</th>
+                  <th className="p-3 text-center">Stripe</th>
+                  <th className="p-3 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {subscriptions.map(s => (
+                  <tr key={s.id} className="border-b border-sport-border/40">
+                    <td className="p-3 font-medium">{s.tenant_id}</td>
+                    <td className="p-3">
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        s.tier === 'enterprise_pro' ? 'bg-purple-500/20 text-purple-400'
+                        : s.tier === 'standard_club' ? 'bg-blue-500/20 text-blue-400'
+                        : s.tier === 'betting_provider_api' ? 'bg-orange-500/20 text-orange-400'
+                        : 'bg-green-500/20 text-green-400'
+                      }`}>{s.tier}</span>
+                    </td>
+                    <td className="p-3 text-center text-sport-dim text-xs">{new Date(s.current_period_start).toLocaleDateString('pt-BR')}</td>
+                    <td className="p-3 text-center text-sport-dim text-xs">{new Date(s.current_period_end).toLocaleDateString('pt-BR')}</td>
+                    <td className="p-3 text-center text-xs font-mono">{s.stripe_customer_id ? '✓' : '-'}</td>
+                    <td className="p-3 text-center">
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${s.is_cancelled ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
+                        {s.is_cancelled ? 'Cancelado' : 'Ativo'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="bg-sport-surface rounded-lg border border-sport-border overflow-hidden">
+            <div className="p-3 border-b border-sport-border font-semibold text-sm">Faturas</div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-sport-border text-sport-dim text-xs">
+                  <th className="p-3 text-left">Tenant</th>
+                  <th className="p-3 text-right">Valor</th>
+                  <th className="p-3 text-center">Moeda</th>
+                  <th className="p-3 text-center">Vencimento</th>
+                  <th className="p-3 text-center">Pagamento</th>
+                  <th className="p-3 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoices.map(inv => (
+                  <tr key={inv.id} className="border-b border-sport-border/40">
+                    <td className="p-3 font-medium">{inv.tenant_id}</td>
+                    <td className="p-3 text-right">{(inv.amount_in_cents / 100).toFixed(2)}</td>
+                    <td className="p-3 text-center text-xs">{inv.currency}</td>
+                    <td className="p-3 text-center text-sport-dim text-xs">{new Date(inv.due_date).toLocaleDateString('pt-BR')}</td>
+                    <td className="p-3 text-center text-sport-dim text-xs">{inv.paid_at ? new Date(inv.paid_at).toLocaleDateString('pt-BR') : '-'}</td>
+                    <td className="p-3 text-center">
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        inv.status === 'paid' ? 'bg-green-500/20 text-green-400'
+                        : inv.status === 'open' ? 'bg-yellow-500/20 text-yellow-400'
+                        : inv.status === 'draft' ? 'bg-gray-500/20 text-gray-400'
+                        : 'bg-red-500/20 text-red-400'
+                      }`}>{inv.status}</span>
                     </td>
                   </tr>
                 ))}

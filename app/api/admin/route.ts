@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { auditLogsData, tenantsData } from '@/data/seed';
+import { auditLogsData, tenantsData, subscriptionPlansData, billingInvoicesData } from '@/data/seed';
 
 // Mock Redis/ClickHouse telemetry
 const mockSysHealth = {
@@ -56,6 +56,13 @@ export async function GET(request: Request) {
 
   if (resource === 'audit') {
     return NextResponse.json(auditLogsData.slice(-50).reverse());
+  }
+
+  if (resource === 'billing') {
+    return NextResponse.json({
+      subscriptions: subscriptionPlansData,
+      invoices: billingInvoicesData,
+    });
   }
 
   return NextResponse.json({ error: 'Unknown resource' }, { status: 400 });

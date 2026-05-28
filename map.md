@@ -1027,6 +1027,15 @@ O volume de eventos em tempo real saturará o modelo puramente relacional:
 
 ## 📝 CHANGELOG
 
+### 2026-05-28 (v16) — v0.3.5-Enterprise-Identity · MOI-CORE-IDENTITY-BILLING
+
+- **Schema**: `mfa_enabled` em `tenant_users`; ENUMs `billing_tier` (4 valores) + `invoice_status` (5 valores); tabelas `tenant_subscription_plans` (UNIQUE tenant_id, partial index `WHERE is_cancelled = FALSE`) + `tenant_billing_invoices` (FK RESTRICT, JSONB metadata, índice composto tenant/status)
+- **Types**: `BillingTier`, `InvoiceStatus`, `TenantSubscriptionPlan`, `TenantBillingInvoice` — 4 novos tipos (1475→1505 linhas, 103→107 exports)
+- **Seed data**: 2 assinaturas (enterprise_pro + standard_club, com stripe IDs) + 3 faturas (paid/open, com metadata de consumo)
+- **API**: `GET /api/admin?resource=billing` — retorna subscriptions + invoices do seed
+- **Admin Panel**: 5ª aba "💰 Faturamento" com duas tabelas (planos com badges coloridos por tier, faturas com status e valor formatado)
+- **Build**: Compilação OK (24 rotas, SWC falhou por memória do ambiente, não por código)
+
 ### 2026-05-28 (v15) — v0.3.8-Enterprise · MOI-IMP Unified Import System
 
 - **Schema**: `stadiums` (10 colunas, tenant-scoped, geo-coordinates) + `import_batches` (5 status, JSONB error_log, índices por tenant/status)

@@ -27,6 +27,8 @@ CREATE TYPE staff_role AS ENUM ('head_coach', 'assistant_coach', 'fitness_coach'
 CREATE TYPE entity_type_enum AS ENUM ('player', 'team', 'match', 'competition', 'venue', 'scout_report', 'article');
 CREATE TYPE edge_predicate_enum AS ENUM ('played_with', 'coached_by', 'rival_of', 'injured_in', 'transferred_to', 'agent_of', 'tactical_cluster');
 CREATE TYPE system_role AS ENUM ('super_admin', 'global_manager', 'tenant_admin', 'competition_manager', 'scout', 'analyst', 'viewer');
+CREATE TYPE billing_tier AS ENUM ('standard_club', 'enterprise_pro', 'betting_provider_api', 'unlimited_sandbox');
+CREATE TYPE invoice_status AS ENUM ('draft', 'open', 'paid', 'uncollectible', 'void');
 
 -- =============================================================================
 -- MULTI-TENANT SAAS (MOI-014)
@@ -72,6 +74,7 @@ CREATE TABLE tenant_users (
   system_role     system_role NOT NULL DEFAULT 'viewer',  -- RBAC enterprise (MOI-ADM)
   is_active       BOOLEAN NOT NULL DEFAULT TRUE,
   last_login_at   TIMESTAMPTZ,
+  mfa_enabled     BOOLEAN NOT NULL DEFAULT FALSE,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (tenant_id, user_id)
 );
@@ -1727,6 +1730,40 @@ CREATE TABLE dreamteam_rankings (
 );
 
 CREATE INDEX idx_dreamteam_elo ON dreamteam_rankings(elo_rating DESC);
+
+-- =============================================================================
+-- BILLING & SUBSCRIPTIONS (MOI-CORE-IDENTITY-BILLING)
+-- Controle de assinaturas multi-tenant, medição de consumo e faturamento SaaS
+-- =============================================================================
+
+CREATE TABLE tenant_subscription_plans (
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id               UUID NOT NULL,
+    tier                    billing_tier NOT NULL DEFAULT 'standard_club',
+    current_period_start    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    current_period_end      TIMESTAMPTZ NOT NULL,
+    stripe_customer_id      VARCHAR(255),
+    stripe_subscription_id  VARCHAR(255),
+    is_cancelled            BOOLEAN DEFAULT FALSE,
+    created_at              TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(tenant_id)
+);
+
+CREATE INDEX idx_subscriptions_expiry ON tenant_subscription_plans(current_period_end) WHERE is_cancelled = FALSE;
+
+CREATE TABLE tenant_billing_invoices (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant_subscription_plans(tenant_id) ON DELETE RESTRICT,
+    amount_in_cents     BIGINT NOT NULL,
+    currency            VARCHAR(3) NOT NULL DEFAULT 'USD',
+    status              invoice_status NOT NULL DEFAULT 'open',
+    due_date            TIMESTAMPTZ NOT NULL,
+    paid_at             TIMESTAMPTZ,
+    metadata            JSONB NOT NULL DEFAULT '{}'::jsonb,  -- Logs de consumo calculados pelo ClickHouse
+    created_at          TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_billing_tenant_status ON tenant_billing_invoices(tenant_id, status);
 
 -- =============================================================================
 -- ADMIN GLOBAL PANEL (MOI-ADM-PANEL) — Tenant Quotas & System Parameters

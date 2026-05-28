@@ -54,6 +54,8 @@ import {
   systemParametersData,
   stadiumsData,
   importBatchesData,
+  subscriptionPlansData,
+  billingInvoicesData,
 } from '../data/seed';
 
 async function seed() {
@@ -138,6 +140,8 @@ async function seed() {
     await insertRows('system_global_parameters', systemParametersData);
     await insertRows('stadiums', stadiumsData);
     await insertRows('import_batches', importBatchesData);
+    await insertRows('tenant_subscription_plans', subscriptionPlansData);
+    await insertRows('tenant_billing_invoices', billingInvoicesData);
 
     console.log('✅ Seed data inserted successfully');
   } catch (err) {
