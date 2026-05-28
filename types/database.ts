@@ -62,32 +62,75 @@ export interface MlFeature {
 }
 
 // =============================================================================
-// DREAM TEAM — LENDAS DO ESPORTE (MOI-DT)
+// DREAMTEAM SIMULATION ENGINE (MOI-020)
 // =============================================================================
 
-export interface DreamTeam {
+export interface FantasyTeam {
   id: string;
   tenantId: string;
-  name: string;
+  ownerUserId: string;
   sportId: SportType;
-  formation?: string;
-  maxPlayers: number;
-  isPublic: boolean;
-  totalRating?: number;
-  createdBy?: string;
+  name: string;
+  logoUrl?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  chemistryScore?: number;
+  moraleScore?: number;
   createdAt: string;
-  updatedAt: string;
 }
 
-export interface DreamTeamPlayer {
+export interface FantasyTeamPlayer {
   id: string;
-  dreamTeamId: string;
+  fantasyTeamId: string;
   playerId: string;
-  slotPosition?: string;
-  shirtNumber?: number;
-  isCaptain: boolean;
-  isViceCaptain: boolean;
-  addedAt: string;
+  isLegend: boolean;
+  contractLevel: number;
+  stamina: number;
+  morale: number;
+}
+
+export interface LegendPlayer {
+  id: string;
+  basePlayerId: string;
+  rarity: 'gold_prime' | 'immortal' | 'epic';
+  primeYear: number;
+  boostedAttributes: Record<string, number>;
+  specialTraits: string[];
+  lore: Record<string, string>;
+}
+
+export interface TacticalProfile {
+  id: string;
+  fantasyTeamId: string;
+  formation: string;
+  tacticalStyle: string;
+  pressingLevel: number;
+  defensiveLine: number;
+  buildUpSpeed: number;
+  width: number;
+  aggression: number;
+  possessionFocus: boolean;
+  counterAttack: boolean;
+  createdAt: string;
+}
+
+export interface FantasyCoach {
+  id: string;
+  name: string;
+  tacticalBonus: Record<string, number>;
+  aiProfile: Record<string, number>;
+  rarity: string;
+}
+
+export interface DreamTeamRanking {
+  id: string;
+  fantasyTeamId: string;
+  eloRating: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  currentStreak: number;
+  updatedAt: string;
 }
 
 // =============================================================================

@@ -238,8 +238,8 @@ export const baseballPlayers: Player[] = [
 export const legendsData: Player[] = [
   // Football
   { id: 'leg1', sportId: 'football', fullName: 'Pelé', shortName: 'Pelé', birthDate: '1940-10-23', nationality: 'Brasil', heightCm: 173, weightKg: 74, imageUrl: '/faces/pele.svg', retired: true, isLegend: true, legendRating: 98, metadata: { position: 'forward', preferredFoot: 'right', shirtNumber: 10 } },
-  { id: 'leg2', sportId: 'football', fullName: 'Diego Maradona', shortName: 'Maradona', birthDate: '1960-10-30', nationality: 'Argentina', heightCm: 165, weightKg: 67, imageUrl: '/faces/maradona.svg', retired: true, isLegend: true, legendRating: 97, metadata: { position: 'attacking_midfielder', preferredFoot: 'left', shirtNumber: 10 } },
-  { id: 'leg3', sportId: 'football', fullName: 'Arthur Antunes Coimbra', shortName: 'Zico', birthDate: '1953-03-03', nationality: 'Brasil', heightCm: 172, weightKg: 70, imageUrl: '/faces/zico.svg', retired: true, isLegend: true, legendRating: 94, metadata: { position: 'attacking_midfielder', preferredFoot: 'right', shirtNumber: 10 } },
+  { id: 'leg2', sportId: 'football', fullName: 'Diego Maradona', shortName: 'Maradona', birthDate: '1960-10-30', nationality: 'Argentina', heightCm: 165, weightKg: 67, imageUrl: '/faces/maradona.svg', retired: true, isLegend: true, legendRating: 97, metadata: { position: 'midfielder', preferredFoot: 'left', shirtNumber: 10 } },
+  { id: 'leg3', sportId: 'football', fullName: 'Arthur Antunes Coimbra', shortName: 'Zico', birthDate: '1953-03-03', nationality: 'Brasil', heightCm: 172, weightKg: 70, imageUrl: '/faces/zico.svg', retired: true, isLegend: true, legendRating: 94, metadata: { position: 'midfielder', preferredFoot: 'right', shirtNumber: 10 } },
   // Basketball
   { id: 'leg4', sportId: 'basketball', fullName: 'Michael Jordan', shortName: 'MJ', birthDate: '1963-02-17', nationality: 'EUA', heightCm: 198, weightKg: 98, imageUrl: '/faces/mj.svg', retired: true, isLegend: true, legendRating: 99, metadata: { position: 'shooting_guard', jerseyNumber: 23 } },
   { id: 'leg5', sportId: 'basketball', fullName: 'Magic Johnson', shortName: 'Magic', birthDate: '1959-08-14', nationality: 'EUA', heightCm: 206, weightKg: 100, imageUrl: '/faces/magic.svg', retired: true, isLegend: true, legendRating: 97, metadata: { position: 'point_guard', jerseyNumber: 32 } },
@@ -458,11 +458,11 @@ export const auditLogsData: AuditLog[] = [
 // =============================================================================
 // DREAM TEAM SEED (MOI-DT)
 // =============================================================================
-export const dreamTeamsData: DreamTeam[] = [
+export const dreamTeamsData = [
   { id: 'dt1', tenantId: 'ten1', name: 'Os Imortais', sportId: 'football', formation: '4-3-3', maxPlayers: 11, isPublic: true, totalRating: 96.3, createdAt: '2025-05-27T00:00:00Z', updatedAt: '2025-05-27T00:00:00Z' },
 ];
 
-export const dreamTeamPlayersData: DreamTeamPlayer[] = [
+export const dreamTeamPlayersData = [
   { id: 'dtp1', dreamTeamId: 'dt1', playerId: 'leg1', slotPosition: 'ST', shirtNumber: 10, isCaptain: true, isViceCaptain: false, addedAt: '2025-05-27T00:00:00Z' },
   { id: 'dtp2', dreamTeamId: 'dt1', playerId: 'leg2', slotPosition: 'CAM', shirtNumber: 10, isCaptain: false, isViceCaptain: true, addedAt: '2025-05-27T00:00:00Z' },
   { id: 'dtp3', dreamTeamId: 'dt1', playerId: 'leg3', slotPosition: 'CM', shirtNumber: 10, isCaptain: false, isViceCaptain: false, addedAt: '2025-05-27T00:00:00Z' },
@@ -506,3 +506,38 @@ export function getAllMatches() {
     competition: competitions.find(c => c.id === m.competitionId),
   }));
 }
+
+// =============================================================================
+// DREAMTEAM SIMULATION ENGINE (MOI-020)
+// =============================================================================
+export const fantasyTeamsData = [
+  { id: 'ft1', tenantId: 'ten1', ownerUserId: 'auth0|user1', sportId: 'football', name: 'MADev Titans', chemistryScore: 85.5, moraleScore: 92.0, createdAt: '2025-05-28T00:00:00Z' },
+  { id: 'ft2', tenantId: 'ten1', ownerUserId: 'auth0|user2', sportId: 'football', name: 'Scout United', chemistryScore: 72.0, moraleScore: 88.5, createdAt: '2025-05-28T00:00:00Z' },
+];
+
+export const fantasyTeamPlayersData = [
+  { id: 'ftp1', fantasyTeamId: 'ft1', playerId: 'leg1', isLegend: true, contractLevel: 5, stamina: 85.0, morale: 95.0 },
+  { id: 'ftp2', fantasyTeamId: 'ft1', playerId: 'leg4', isLegend: true, contractLevel: 5, stamina: 78.0, morale: 90.0 },
+  { id: 'ftp3', fantasyTeamId: 'ft1', playerId: 'p1', isLegend: false, contractLevel: 3, stamina: 92.0, morale: 88.0 },
+  { id: 'ftp4', fantasyTeamId: 'ft2', playerId: 'leg2', isLegend: true, contractLevel: 4, stamina: 72.0, morale: 85.0 },
+];
+
+export const legendPlayersData = [
+  { id: 'lp1', basePlayerId: 'leg1', rarity: 'immortal', primeYear: 1958, boostedAttributes: { pace: 5, shooting: 8, dribbling: 10 }, specialTraits: ['clutch_player', 'bicycle_kick_specialist', 'rainbow_flick'], lore: { legacy: 'Maior jogador de todos os tempos', titles: '3 Copas do Mundo' } },
+  { id: 'lp2', basePlayerId: 'leg4', rarity: 'gold_prime', primeYear: 1992, boostedAttributes: { dunk: 12, steal: 8, clutch: 15 }, specialTraits: ['clutch_player', 'posterizer', 'ice_veins'], lore: { legacy: 'Maior jogador de basquete de todos os tempos', titles: '6 títulos NBA' } },
+];
+
+export const tacticalProfilesData = [
+  { id: 'tp1', fantasyTeamId: 'ft1', formation: '4-3-3', tacticalStyle: 'tiki_taka', pressingLevel: 85, defensiveLine: 70, buildUpSpeed: 65, width: 80, aggression: 55, possessionFocus: true, counterAttack: false, createdAt: '2025-05-28T00:00:00Z' },
+  { id: 'tp2', fantasyTeamId: 'ft2', formation: '4-2-3-1', tacticalStyle: 'counter_attack', pressingLevel: 60, defensiveLine: 45, buildUpSpeed: 85, width: 50, aggression: 70, possessionFocus: false, counterAttack: true, createdAt: '2025-05-28T00:00:00Z' },
+];
+
+export const fantasyCoachesData = [
+  { id: 'fc1', name: 'Guardiola Virtual', tacticalBonus: { offensive_boost: 12, possession_bonus: 8, defense_penalty: -3 }, aiProfile: { aggressive_tactical_changes: 0.7, substitution_timing: 65, formation_flexibility: 0.9 }, rarity: 'legendary' },
+  { id: 'fc2', name: 'Mourinho Digital', tacticalBonus: { defensive_boost: 15, counter_bonus: 10, offensive_penalty: -5 }, aiProfile: { park_the_bus_tendency: 0.8, set_piece_focus: 0.9, substitution_timing: 55 }, rarity: 'legendary' },
+];
+
+export const dreamteamRankingsData = [
+  { id: 'dtr1', fantasyTeamId: 'ft1', eloRating: 1250, wins: 12, losses: 4, draws: 2, currentStreak: 3, updatedAt: '2025-05-28T00:00:00Z' },
+  { id: 'dtr2', fantasyTeamId: 'ft2', eloRating: 1100, wins: 8, losses: 7, draws: 3, currentStreak: -1, updatedAt: '2025-05-28T00:00:00Z' },
+];

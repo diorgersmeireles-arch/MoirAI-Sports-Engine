@@ -123,7 +123,7 @@ moirai-sports-engine/
 ├── data/
 │   └── seed.ts                 # Dados mockados: 5 comps, 23 times, 28 jogadores (18 ativos + 10 lendas), 14 partidas, multi-sport stats, 7 atributos, 3 cartões + staff, injuries, transfers, lineups, rankings, odds, multi-tenant, embeddings, knowledge graph, ml features, audit logs, dream teams
 ├── database/
-│   ├── schema.sql              # Schema PostgreSQL: 52 tabelas, 19 ENUMs, Knowledge Graph, ML Feature Store, Event Versioning, Audit & Governance, Dream Team, multi-tenant, embeddings, MV
+│   ├── schema.sql              # Schema PostgreSQL: 58 tabelas, 20 ENUMs, Knowledge Graph, ML Feature Store, Event Versioning, Audit & Governance, Dream Team, Fantasy Teams, Simulation Engine, multi-tenant, embeddings, MV
 │   ├── clickhouse_observability.sql     # ClickHouse DDL: MergeTree, MV, Kafka Engine, NOC queries
 │   └── migration_athletes.sql  # Perfil individual: atributos, cartões, teia
 ├── hooks/
@@ -140,7 +140,7 @@ moirai-sports-engine/
 │   └── useLiveMatchStore.ts    # Zustand Slice Pattern: latência zero, 25 FPS (MOI-LMCC)
 ├── types/
 │   ├── sports.ts               # Contratos de dados do domínio (279 linhas)
-│   └── database.ts             # Tipagens do banco de dados (1236 linhas, 91 exports)
+│   └── database.ts             # Tipagens do banco de dados (1420 linhas, 97 exports)
 ├── utils/
 │   ├── mathEngine.ts           # Funções estatísticas puras (254 linhas)
 │   └── financeEngine.ts        # EV e Critério de Kelly (133 linhas)
@@ -1023,6 +1023,16 @@ O volume de eventos em tempo real saturará o modelo puramente relacional:
 ```
 
 ## 📝 CHANGELOG
+
+### 2026-05-28 (v12) — v0.4.0-Alpha-MOI-020 · DreamTeam Simulation Engine
+
+- **MOI-020 DreamTeam Simulation Engine**: Motor de simulação determinística com seed SHA256, momentum dinâmico e pipeline EDA completo
+- **6 novas tabelas**: `fantasy_teams` (chemistry_score, morale_score), `fantasy_team_players` (contract_level, stamina, morale, UNIQUE team+player), `legend_players` (rarity `gold_prime|immortal|epic`, prime_year, boosted_attributes, special_traits, lore), `tactical_profiles` (formation, tactical_style, pressing_level 0-100, defensive_line, build_up_speed, width, aggression, possession_focus, counter_attack), `fantasy_coaches` (tactical_bonus JSONB, ai_profile JSONB, rarity), `dreamteam_rankings` (elo_rating, wins, losses, draws, current_streak, índice DESC)
+- **ENUM expandido**: `american_football` adicionado ao `sport_type`
+- **Seed**: 2 fantasy teams, 4 team players (2 lendas + 2 ativos), 2 legend_players (Pelé immortal, MJ gold_prime), 2 tactical profiles (tiki_taka, counter_attack), 2 fantasy coaches (Guardiola, Mourinho), 2 rankings ELO
+- **Tipos TS**: 6 novas interfaces (`FantasyTeam`, `FantasyTeamPlayer`, `LegendPlayer`, `TacticalProfile`, `FantasyCoach`, `DreamTeamRanking`)
+- **Schema**: 58 tabelas, 20 ENUMs
+- **Build**: 20 routes, 0 errors
 
 ### 2026-05-27 (v11) — v0.3.5-DreamTeam · Legends & Dream Team (MOI-DT)
 

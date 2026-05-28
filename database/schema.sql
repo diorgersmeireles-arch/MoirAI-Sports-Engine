@@ -9,7 +9,7 @@
 -- ENUMS
 -- =============================================================================
 
-CREATE TYPE sport_type AS ENUM ('football', 'volleyball', 'basketball', 'baseball');
+CREATE TYPE sport_type AS ENUM ('football', 'volleyball', 'basketball', 'baseball', 'american_football');
 CREATE TYPE match_status AS ENUM ('scheduled', 'live', 'finished', 'postponed', 'cancelled');
 CREATE TYPE match_period AS ENUM ('first_half', 'second_half', 'extra_time', 'penalties');
 CREATE TYPE card_type AS ENUM ('yellow', 'red', 'second_yellow');
@@ -1608,6 +1608,86 @@ CREATE POLICY tenant_isolation_dt_players ON dream_team_players
             WHERE tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
         )
     );
+
+-- =============================================================================
+-- DREAMTEAM SIMULATION ENGINE (MOI-020) — Fantasy Teams, Legend Players, Tactical Profiles
+-- Motor de simulação determinística com seed SHA256, momentum dinâmico e ELO rankings
+-- =============================================================================
+
+CREATE TABLE fantasy_teams (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       UUID NOT NULL,                          -- Isolamento multi-tenant
+    owner_user_id   UUID NOT NULL,                          -- FK para tenant_users
+    sport_id        sport_type NOT NULL,
+    name            VARCHAR(100) NOT NULL,
+    logo_url        TEXT,
+    primary_color   VARCHAR(20),
+    secondary_color VARCHAR(20),
+    chemistry_score DECIMAL(5,2) DEFAULT 0.00,
+    morale_score    DECIMAL(5,2) DEFAULT 100.00,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_fantasy_teams_owner ON fantasy_teams(owner_user_id);
+
+CREATE TABLE fantasy_team_players (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    fantasy_team_id UUID NOT NULL REFERENCES fantasy_teams(id) ON DELETE CASCADE,
+    player_id       UUID NOT NULL,                          -- FK para players (v0.3 core)
+    is_legend       BOOLEAN NOT NULL DEFAULT FALSE,
+    contract_level  SMALLINT NOT NULL DEFAULT 1,
+    stamina         DECIMAL(5,2) NOT NULL DEFAULT 100.00,
+    morale          DECIMAL(5,2) NOT NULL DEFAULT 100.00,
+    UNIQUE (fantasy_team_id, player_id)
+);
+
+CREATE INDEX idx_fantasy_players_team ON fantasy_team_players(fantasy_team_id);
+
+CREATE TABLE legend_players (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    base_player_id  UUID NOT NULL,                          -- FK para players (versão lenda)
+    rarity          VARCHAR(20) NOT NULL,                    -- 'gold_prime', 'immortal', 'epic'
+    prime_year      SMALLINT NOT NULL,
+    boosted_attributes JSONB NOT NULL DEFAULT '{}'::jsonb,  -- Upgrades em relação ao player base
+    special_traits  JSONB NOT NULL DEFAULT '[]'::jsonb,     -- Ex: ['clutch_player', 'ice_veins']
+    lore            JSONB NOT NULL DEFAULT '{}'::jsonb       -- Narrativa histórica da lenda
+);
+
+CREATE TABLE tactical_profiles (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    fantasy_team_id UUID NOT NULL REFERENCES fantasy_teams(id) ON DELETE CASCADE,
+    formation       VARCHAR(20) NOT NULL DEFAULT '4-3-3',
+    tactical_style  VARCHAR(50) NOT NULL DEFAULT 'tiki_taka',
+    pressing_level  SMALLINT NOT NULL DEFAULT 70,           -- 0-100
+    defensive_line  SMALLINT NOT NULL DEFAULT 65,           -- 0-100
+    build_up_speed  SMALLINT NOT NULL DEFAULT 60,           -- 0-100
+    width           SMALLINT NOT NULL DEFAULT 55,            -- 0-100
+    aggression      SMALLINT NOT NULL DEFAULT 50,            -- 0-100
+    possession_focus    BOOLEAN NOT NULL DEFAULT TRUE,
+    counter_attack      BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE fantasy_coaches (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name            VARCHAR(100) NOT NULL,
+    tactical_bonus  JSONB NOT NULL DEFAULT '{}'::jsonb,     -- Ex: {'offensive_boost': 10, 'defense_penalty': -5}
+    ai_profile      JSONB NOT NULL DEFAULT '{}'::jsonb,     -- Pesos de decisão da IA do técnico
+    rarity          VARCHAR(20) NOT NULL DEFAULT 'standard'
+);
+
+CREATE TABLE dreamteam_rankings (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    fantasy_team_id UUID NOT NULL REFERENCES fantasy_teams(id) ON DELETE CASCADE,
+    elo_rating      INT NOT NULL DEFAULT 1000,
+    wins            INT NOT NULL DEFAULT 0,
+    losses          INT NOT NULL DEFAULT 0,
+    draws           INT NOT NULL DEFAULT 0,
+    current_streak  INT NOT NULL DEFAULT 0,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_dreamteam_elo ON dreamteam_rankings(elo_rating DESC);
 
 -- =============================================================================
 -- ENTERPRISE AUDIT & GOVERNANCE (MOI-ADM) — Tamper-Proof Audit Trail

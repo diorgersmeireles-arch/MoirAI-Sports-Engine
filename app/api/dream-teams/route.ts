@@ -4,7 +4,6 @@ import {
   dreamTeamPlayersData,
   legendsData,
 } from '@/data/seed';
-import type { DreamTeamPlayer } from '@/types/database';
 
 function getPlayer(playerId: string) {
   return legendsData.find(p => p.id === playerId);
@@ -44,7 +43,7 @@ export async function POST(request: Request) {
     updatedAt: new Date().toISOString(),
   };
 
-  const newPlayers: DreamTeamPlayer[] = (playerIds ?? []).map((pid: string, i: number) => ({
+  const newPlayers = (playerIds ?? []).map((pid: string, i: number) => ({
     id: `dtp${Date.now()}_${i}`,
     dreamTeamId: newTeam.id,
     playerId: pid,
