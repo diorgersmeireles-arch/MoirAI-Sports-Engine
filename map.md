@@ -1027,6 +1027,16 @@ O volume de eventos em tempo real saturará o modelo puramente relacional:
 
 ## 📝 CHANGELOG
 
+### 2026-05-28 (v17) — v0.5.0-Premium · Premium Black & Gold Theme + Roadmap
+
+- **Theme**: Esquema de cores preto e dourado — `bg: #000`, `surface: #111`, `gold: #d4af37`, `gold-light: #f0d060`, texto `#f5f0e8`; Tailwind config com `shadow-gold` e `shadow-gold-sm`
+- **Globals**: `::selection` dourado, scrollbar dourado no hover, fundo preto
+- **NavBar**: Gradient preto, gold branding com tracking expandido, active state com `shadow-gold-sm`, hover dourado translúcido
+- **Dashboard**: Cards com borda hover dourada, títulos em tracking-wider uppercase gold 70%, tabela com hover gold 5%, badges dourados, seção "Próximos Módulos" com preview do roadmap
+- **Roadmap**: `/roadmap` — página dedicada com os 6 módulos de expansão (Neural Scouting, Live Betting, Biometrics, Multimedia, Geospatial, Anti-Cheat), cada um com ícone, número, descrição, tech stack, features em bullet points ◆, fase colorida (Visual→verde, Inteligência→dourado, Metaverso→roxo), marcos de integração
+- **Navegação**: Link "🚀 Roadmap" adicionado ao navbar
+- **Build**: 25 rotas
+
 ### 2026-05-28 (v16) — v0.3.5-Enterprise-Identity · MOI-CORE-IDENTITY-BILLING
 
 - **Schema**: `mfa_enabled` em `tenant_users`; ENUMs `billing_tier` (4 valores) + `invoice_status` (5 valores); tabelas `tenant_subscription_plans` (UNIQUE tenant_id, partial index `WHERE is_cancelled = FALSE`) + `tenant_billing_invoices` (FK RESTRICT, JSONB metadata, índice composto tenant/status)
