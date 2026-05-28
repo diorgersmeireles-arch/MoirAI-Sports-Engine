@@ -1690,6 +1690,33 @@ CREATE TABLE dreamteam_rankings (
 CREATE INDEX idx_dreamteam_elo ON dreamteam_rankings(elo_rating DESC);
 
 -- =============================================================================
+-- ADMIN GLOBAL PANEL (MOI-ADM-PANEL) — Tenant Quotas & System Parameters
+-- Controle centralizado de cotas multi-tenant e parâmetros globais de infra
+-- =============================================================================
+
+CREATE TABLE tenant_quotas_enforcement (
+    id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id                   UUID NOT NULL,
+    max_api_requests_per_minute INT NOT NULL DEFAULT 60,
+    max_websocket_connections   INT NOT NULL DEFAULT 10,
+    max_vector_embeddings_storage INT NOT NULL DEFAULT 5000,
+    allocated_storage_bytes     BIGINT NOT NULL DEFAULT 5368709120,  -- 5GB Base
+    is_active                   BOOLEAN NOT NULL DEFAULT TRUE,
+    updated_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(tenant_id)
+);
+
+CREATE INDEX idx_quotas_tenant ON tenant_quotas_enforcement(tenant_id) WHERE is_active = TRUE;
+
+CREATE TABLE system_global_parameters (
+    param_key   VARCHAR(100) PRIMARY KEY,
+    param_value JSONB NOT NULL,
+    description TEXT,
+    updated_by  UUID,
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- =============================================================================
 -- ENTERPRISE AUDIT & GOVERNANCE (MOI-ADM) — Tamper-Proof Audit Trail
 -- Rastreamento forense de todas as operações críticas do sistema
 -- =============================================================================

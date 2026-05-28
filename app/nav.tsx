@@ -12,6 +12,7 @@ const navItems = [
   { href: '/competitions', label: 'Competições' },
   { href: '/legends', label: '🏆 Lendas' },
   { href: '/dream-team', label: '⭐ Dream Team' },
+  { href: '/admin', label: '⚙️ Admin' },
 ];
 
 export default function NavBar() {

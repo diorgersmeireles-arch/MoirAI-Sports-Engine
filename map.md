@@ -82,7 +82,7 @@ Core domain events:
 moirai-sports-engine/
 ├── app/
 │   ├── layout.tsx              # Layout root com NavBar
-│   ├── nav.tsx                 # Barra de navegação (Dashboard, Partidas, Atletas, Comparar, Scanner, Competições, Lendas, Dream Team)
+│   ├── nav.tsx                 # Barra de navegação (Dashboard, Partidas, Atletas, Comparar, Scanner, Competições, Lendas, Dream Team, Admin)
 │   ├── globals.css             # Tailwind v3 + tema dark custom
 │   ├── page.tsx                # Dashboard: stats, live matches, standings mini, scanner preview
 │   ├── compare/
@@ -101,6 +101,8 @@ moirai-sports-engine/
 │   │   └── page.tsx            # Galeria de lendas do esporte com filtro por modalidade
 │   └── dream-team/
 │       └── page.tsx            # Construtor de Dream Team com campo tático e seleção de lendas
+│   └── admin/
+│       └── page.tsx            # Painel administrativo global: NOC, Quotas, Emergência, Compliance
 ├── api/
 │   ├── matches/route.ts         # GET: matches (filtro por id, status)
 │   ├── players/route.ts         # GET: players (filtro por id, sport, q/search)
@@ -109,6 +111,7 @@ moirai-sports-engine/
 │   ├── standings/route.ts       # GET: classificação por competitionId + seasonId
 │   ├── legends/route.ts         # GET: lendas do esporte (filtro por sport)
 │   ├── dream-teams/route.ts     # GET: listar dream teams; POST: criar dream team
+│   ├── admin/route.ts           # GET: sys-health, quotas, audit; POST: purge, kill-switch, update-quota
 │   ├── live/
 │   │   └── match/[id]/route.ts  # GET: snapshot + gateway WebSocket fallback
 │   └── v1/
@@ -123,7 +126,7 @@ moirai-sports-engine/
 ├── data/
 │   └── seed.ts                 # Dados mockados: 5 comps, 23 times, 28 jogadores (18 ativos + 10 lendas), 14 partidas, multi-sport stats, 7 atributos, 3 cartões + staff, injuries, transfers, lineups, rankings, odds, multi-tenant, embeddings, knowledge graph, ml features, audit logs, dream teams
 ├── database/
-│   ├── schema.sql              # Schema PostgreSQL: 58 tabelas, 20 ENUMs, Knowledge Graph, ML Feature Store, Event Versioning, Audit & Governance, Dream Team, Fantasy Teams, Simulation Engine, multi-tenant, embeddings, MV
+│   ├── schema.sql              # Schema PostgreSQL: 60 tabelas, 20 ENUMs, Knowledge Graph, ML Feature Store, Event Versioning, Audit & Governance, Dream Team, Fantasy Teams, Simulation Engine, Admin Panel, multi-tenant, embeddings, MV
 │   ├── clickhouse_observability.sql     # ClickHouse DDL: MergeTree, MV, Kafka Engine, NOC queries
 │   └── migration_athletes.sql  # Perfil individual: atributos, cartões, teia
 ├── hooks/
@@ -140,7 +143,7 @@ moirai-sports-engine/
 │   └── useLiveMatchStore.ts    # Zustand Slice Pattern: latência zero, 25 FPS (MOI-LMCC)
 ├── types/
 │   ├── sports.ts               # Contratos de dados do domínio (279 linhas)
-│   └── database.ts             # Tipagens do banco de dados (1420 linhas, 97 exports)
+│   └── database.ts             # Tipagens do banco de dados (1450 linhas, 99 exports)
 ├── utils/
 │   ├── mathEngine.ts           # Funções estatísticas puras (254 linhas)
 │   └── financeEngine.ts        # EV e Critério de Kelly (133 linhas)
@@ -1023,6 +1026,17 @@ O volume de eventos em tempo real saturará o modelo puramente relacional:
 ```
 
 ## 📝 CHANGELOG
+
+### 2026-05-28 (v13) — v0.3.5-Admin-Core · MOI-ADM-PANEL
+
+- **MOI-ADM-PANEL**: Painel Administrativo Global — 4 módulos operacionais integrados
+- **2 novas tabelas**: `tenant_quotas_enforcement` (max_api_requests_per_minute, max_websocket_connections, max_vector_embeddings_storage, allocated_storage_bytes 5GB, UNIQUE tenant_id, índice parcial WHERE is_active) + `system_global_parameters` (param_key PK, param_value JSONB, updated_by, audit trail)
+- **API Admin**: `GET /api/admin?resource=sys-health` (telemetria Redis/Kafka/Postgres/ClickHouse + throughput 1m), `GET /api/admin?resource=quotas` (cotas por tenant), `GET /api/admin?resource=audit` (últimas 50 entradas), `POST /api/admin` com ações purge-match-cache, kill-switch, update-quota — protegido por `x-system-role: super_admin | global_manager`
+- **Página `/admin`**: 4 abas — NOC Operations Dashboard (cards de cluster + throughput + alertas ativos), SaaS Quota Manager (data grid com formatação de armazenamento), Emergency Command Center (formulário de purge de cache + kill-switch de pipeline), Compliance Forensic Audit Trail (tabela paginada com metadados JSONB)
+- **Navegação**: Link "⚙️ Admin" adicionado à NavBar
+- **Tipos TS**: 2 novas interfaces (`TenantQuota`, `SystemGlobalParameter`)
+- **Schema**: 60 tabelas, 20 ENUMs
+- **Build**: 21 routes, 0 errors
 
 ### 2026-05-28 (v12) — v0.4.0-Alpha-MOI-020 · DreamTeam Simulation Engine
 

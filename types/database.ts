@@ -134,6 +134,29 @@ export interface DreamTeamRanking {
 }
 
 // =============================================================================
+// ADMIN GLOBAL PANEL (MOI-ADM-PANEL)
+// =============================================================================
+
+export interface TenantQuota {
+  id: string;
+  tenantId: string;
+  maxApiRequestsPerMinute: number;
+  maxWebsocketConnections: number;
+  maxVectorEmbeddingsStorage: number;
+  allocatedStorageBytes: number;
+  isActive: boolean;
+  updatedAt: string;
+}
+
+export interface SystemGlobalParameter {
+  paramKey: string;
+  paramValue: Record<string, unknown>;
+  description?: string;
+  updatedBy?: string;
+  updatedAt: string;
+}
+
+// =============================================================================
 // DOMÍNIO (Compartilhado)
 // =============================================================================
 
